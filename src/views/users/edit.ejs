@@ -1,0 +1,38 @@
+<div class="max-w-lg mx-auto">
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+    <h2 class="text-base font-semibold mb-5">Edit User — <%= editUser.name %></h2>
+
+    <% if (error) { %>
+      <div class="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg mb-4 text-sm"><%= error %></div>
+    <% } %>
+
+    <form method="POST" action="/users/<%= editUser.id %>/edit" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+        <input type="text" name="name" required value="<%= editUser.name %>" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm transition">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">New Password (leave blank to keep)</label>
+        <input type="password" name="password" minlength="6" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm transition" placeholder="••••••">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role</label>
+        <select name="role" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm transition">
+          <option value="user" <%= editUser.role === 'user' ? 'selected' : '' %>>User</option>
+          <% if (user.role === 'superadmin') { %>
+            <option value="admin" <%= editUser.role === 'admin' ? 'selected' : '' %>>Admin</option>
+            <option value="superadmin" <%= editUser.role === 'superadmin' ? 'selected' : '' %>>Super Admin</option>
+          <% } %>
+        </select>
+      </div>
+      <div class="flex items-center gap-2">
+        <input type="checkbox" name="isActive" id="isActive" <%= editUser.isActive ? 'checked' : '' %> class="w-4 h-4 text-green-600 border-gray-300 dark:border-gray-600 rounded focus:ring-green-500 bg-gray-50 dark:bg-gray-800">
+        <label for="isActive" class="text-sm text-gray-700 dark:text-gray-300">Active</label>
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow-sm">Update</button>
+        <a href="/users" class="px-5 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>

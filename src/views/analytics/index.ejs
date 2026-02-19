@@ -1,0 +1,83 @@
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+
+<!-- Period selector -->
+<div class="flex items-center gap-2 mb-5">
+  <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">Period:</span>
+  <% [7, 14, 30].forEach(d => { %>
+    <a href="/analytics?days=<%= d %>" class="px-3 py-1.5 rounded-lg text-xs font-medium transition
+      <%= days === d ? 'bg-green-600 text-white shadow-sm' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800' %>">
+      <%= d %> days
+    </a>
+  <% }) %>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+    <h3 class="text-sm font-semibold mb-4">Messages Per Day</h3>
+    <canvas id="dailyChart" height="250"></canvas>
+  </div>
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+    <h3 class="text-sm font-semibold mb-4">Hourly Distribution</h3>
+    <canvas id="hourlyChart" height="250"></canvas>
+  </div>
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 lg:col-span-2">
+    <h3 class="text-sm font-semibold mb-4">Messages Per Device</h3>
+    <canvas id="deviceChart" height="150"></canvas>
+  </div>
+</div>
+
+<script>
+  const isDark = document.documentElement.classList.contains('dark');
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const textColor = isDark ? '#9ca3af' : '#6b7280';
+  Chart.defaults.color = textColor;
+  Chart.defaults.borderColor = gridColor;
+
+  const dailyData = <%- JSON.stringify(dailyMessages) %>;
+  const hourlyData = <%- JSON.stringify(hourly) %>;
+  const deviceData = <%- JSON.stringify(perDevice) %>;
+
+  new Chart(document.getElementById('dailyChart'), {
+    type: 'bar',
+    data: {
+      labels: dailyData.map(d => d.date ? new Date(d.date).toLocaleDateString('en', {month:'short',day:'numeric'}) : ''),
+      datasets: [
+        { label: 'Incoming', data: dailyData.map(d => d.incoming), backgroundColor: isDark ? 'rgba(34,197,94,0.5)' : 'rgba(34,197,94,0.7)', borderRadius: 4 },
+        { label: 'Outgoing', data: dailyData.map(d => d.outgoing), backgroundColor: isDark ? 'rgba(59,130,246,0.5)' : 'rgba(59,130,246,0.7)', borderRadius: 4 },
+      ]
+    },
+    options: { responsive:true, scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}, plugins:{legend:{position:'bottom'}} }
+  });
+
+  const hours = Array.from({length:24},(_,i)=>i);
+  const hourlyMap = {};
+  hourlyData.forEach(h => { hourlyMap[h.hour] = h.total; });
+  new Chart(document.getElementById('hourlyChart'), {
+    type: 'line',
+    data: {
+      labels: hours.map(h => h+':00'),
+      datasets: [{
+        label: 'Messages',
+        data: hours.map(h => hourlyMap[h]||0),
+        borderColor: 'rgba(34,197,94,1)',
+        backgroundColor: isDark ? 'rgba(34,197,94,0.08)' : 'rgba(34,197,94,0.1)',
+        fill: true, tension: 0.4, pointRadius: 3,
+      }]
+    },
+    options: { responsive:true, scales:{y:{beginAtZero:true}}, plugins:{legend:{display:false}} }
+  });
+
+  new Chart(document.getElementById('deviceChart'), {
+    type: 'bar',
+    data: {
+      labels: deviceData.map(d => d.deviceName || d.sessionId),
+      datasets: [{
+        label: 'Messages',
+        data: deviceData.map(d => d.total),
+        backgroundColor: isDark ? 'rgba(99,102,241,0.5)' : 'rgba(99,102,241,0.7)',
+        borderRadius: 4,
+      }]
+    },
+    options: { responsive:true, indexAxis:'y', scales:{x:{beginAtZero:true}}, plugins:{legend:{display:false}} }
+  });
+</script>

@@ -1,0 +1,85 @@
+<!-- Filters -->
+<div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 mb-5">
+  <form method="GET" action="/messages" class="flex flex-wrap gap-3 items-end">
+    <div>
+      <label class="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Direction</label>
+      <select name="direction" class="px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+        <option value="all" <%= filters.direction === 'all' ? 'selected' : '' %>>All</option>
+        <option value="incoming" <%= filters.direction === 'incoming' ? 'selected' : '' %>>Incoming</option>
+        <option value="outgoing" <%= filters.direction === 'outgoing' ? 'selected' : '' %>>Outgoing</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Device</label>
+      <select name="device" class="px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+        <option value="">All Devices</option>
+        <% devices.forEach(d => { %>
+          <option value="<%= d.sessionId %>" <%= filters.device === d.sessionId ? 'selected' : '' %>><%= d.name || d.sessionId %></option>
+        <% }) %>
+      </select>
+    </div>
+    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm">Filter</button>
+  </form>
+</div>
+
+<!-- Messages table -->
+<div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="border-b border-gray-100 dark:border-gray-800">
+        <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Direction</th>
+        <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Device</th>
+        <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Contact</th>
+        <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Name</th>
+        <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Type</th>
+        <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Content</th>
+        <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Status</th>
+        <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Time</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+      <% if (messages.length === 0) { %>
+        <tr><td colspan="8" class="px-5 py-10 text-center text-gray-400">No messages found</td></tr>
+      <% } %>
+      <% messages.forEach(msg => { %>
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+          <td class="px-5 py-2.5">
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium <%= msg.fromMe ? 'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400' : 'bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400' %>">
+              <%= msg.fromMe ? '↑ Out' : '↓ In' %>
+            </span>
+          </td>
+          <td class="px-5 py-2.5 text-gray-600 dark:text-gray-300"><%= msg.sessionId %></td>
+          <td class="px-5 py-2.5 text-gray-600 dark:text-gray-300 font-mono text-xs"><%= msg.remoteJid ? msg.remoteJid.split('@')[0] : '-' %></td>
+          <td class="px-5 py-2.5 text-gray-600 dark:text-gray-300"><%= msg.pushName || '-' %></td>
+          <td class="px-5 py-2.5">
+            <span class="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded"><%= msg.messageType %></span>
+          </td>
+          <td class="px-5 py-2.5 text-gray-600 dark:text-gray-300 max-w-xs truncate"><%= msg.content || '-' %></td>
+          <td class="px-5 py-2.5">
+            <% if (msg.status) { %>
+              <span class="text-xs <%= msg.status === 'read' ? 'text-blue-600 dark:text-blue-400' : msg.status === 'delivered' ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400' %>"><%= msg.status %></span>
+            <% } else { %>
+              <span class="text-xs text-gray-400">-</span>
+            <% } %>
+          </td>
+          <td class="px-5 py-2.5 text-gray-400 whitespace-nowrap"><%= new Date(msg.createdAt).toLocaleString() %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<!-- Pagination -->
+<% if (pagination.totalPages > 1) { %>
+  <div class="flex items-center justify-between mt-4">
+    <p class="text-xs text-gray-500 dark:text-gray-400">Page <%= pagination.page %> of <%= pagination.totalPages %> (<%= pagination.total %> total)</p>
+    <div class="flex gap-2">
+      <% if (pagination.page > 1) { %>
+        <a href="/messages?page=<%= pagination.page - 1 %>&direction=<%= filters.direction %>&device=<%= filters.device %>" class="px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">← Previous</a>
+      <% } %>
+      <% if (pagination.page < pagination.totalPages) { %>
+        <a href="/messages?page=<%= pagination.page + 1 %>&direction=<%= filters.direction %>&device=<%= filters.device %>" class="px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">Next →</a>
+      <% } %>
+    </div>
+  </div>
+<% } %>

@@ -1,0 +1,270 @@
+<style>
+  .api-card { transition: all 0.15s; }
+  .api-card:hover { border-color: #22c55e; }
+  .method-badge { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; letter-spacing: 0.5px; }
+  pre.code-block { background: #0f172a; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; font-size: 12px; line-height: 1.7; font-family: 'SF Mono', 'Fira Code', monospace; }
+  .dark pre.code-block { background: #0c1222; }
+  .copy-btn { position: absolute; top: 8px; right: 8px; padding: 4px 10px; font-size: 11px; }
+</style>
+
+<div class="mb-5">
+  <p class="text-sm text-gray-500 dark:text-gray-400">Base URL: <code class="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded text-xs font-mono text-green-600 dark:text-green-400"><%= baseUrl %></code></p>
+  <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">All endpoints accept and return JSON. No authentication required for API routes.</p>
+</div>
+
+<div class="space-y-5">
+
+  <!-- Send Text Message -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 api-card">
+    <div class="flex items-center gap-3 mb-3">
+      <span class="method-badge px-2 py-0.5 rounded bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400 font-bold">POST</span>
+      <code class="text-sm font-mono text-gray-700 dark:text-gray-300">/api/sessions/:sessionId/send-message</code>
+    </div>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Send a text message to a WhatsApp number.</p>
+
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Request Body</h4>
+    <div class="relative">
+      <pre class="code-block">{
+  "jid": "6281234567890@s.whatsapp.net",
+  "message": {
+    "text": "Hello from WA Gateway!"
+  }
+}</pre>
+    </div>
+
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mt-4 mb-2">Response</h4>
+    <div class="relative">
+      <pre class="code-block">{
+  "status": "success",
+  "messageId": "BAE5A1234567890"
+}</pre>
+    </div>
+
+    <div class="mt-4 bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/20 rounded-lg p-3">
+      <p class="text-xs text-blue-700 dark:text-blue-400"><strong>JID Format:</strong> Use <code>phone@s.whatsapp.net</code> for personal chats and <code>groupid@g.us</code> for group chats. Phone number must include country code without <code>+</code>.</p>
+    </div>
+  </div>
+
+  <!-- Send Image -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 api-card">
+    <div class="flex items-center gap-3 mb-3">
+      <span class="method-badge px-2 py-0.5 rounded bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400 font-bold">POST</span>
+      <code class="text-sm font-mono text-gray-700 dark:text-gray-300">/api/sessions/:sessionId/send-message</code>
+    </div>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Send an image with optional caption.</p>
+
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Request Body</h4>
+    <div class="relative">
+      <pre class="code-block">{
+  "jid": "6281234567890@s.whatsapp.net",
+  "message": {
+    "image": { "url": "https://example.com/photo.jpg" },
+    "caption": "Check this out!"
+  }
+}</pre>
+    </div>
+  </div>
+
+  <!-- Send Document -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 api-card">
+    <div class="flex items-center gap-3 mb-3">
+      <span class="method-badge px-2 py-0.5 rounded bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400 font-bold">POST</span>
+      <code class="text-sm font-mono text-gray-700 dark:text-gray-300">/api/sessions/:sessionId/send-message</code>
+    </div>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Send a document/file.</p>
+
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Request Body</h4>
+    <div class="relative">
+      <pre class="code-block">{
+  "jid": "6281234567890@s.whatsapp.net",
+  "message": {
+    "document": { "url": "https://example.com/report.pdf" },
+    "mimetype": "application/pdf",
+    "fileName": "report.pdf"
+  }
+}</pre>
+    </div>
+  </div>
+
+  <!-- Send Video -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 api-card">
+    <div class="flex items-center gap-3 mb-3">
+      <span class="method-badge px-2 py-0.5 rounded bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400 font-bold">POST</span>
+      <code class="text-sm font-mono text-gray-700 dark:text-gray-300">/api/sessions/:sessionId/send-message</code>
+    </div>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Send a video with optional caption.</p>
+
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Request Body</h4>
+    <div class="relative">
+      <pre class="code-block">{
+  "jid": "6281234567890@s.whatsapp.net",
+  "message": {
+    "video": { "url": "https://example.com/clip.mp4" },
+    "caption": "Video message"
+  }
+}</pre>
+    </div>
+  </div>
+
+  <!-- Send Location -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 api-card">
+    <div class="flex items-center gap-3 mb-3">
+      <span class="method-badge px-2 py-0.5 rounded bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400 font-bold">POST</span>
+      <code class="text-sm font-mono text-gray-700 dark:text-gray-300">/api/sessions/:sessionId/send-message</code>
+    </div>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Send a location pin.</p>
+
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Request Body</h4>
+    <div class="relative">
+      <pre class="code-block">{
+  "jid": "6281234567890@s.whatsapp.net",
+  "message": {
+    "location": {
+      "degreesLatitude": -6.2088,
+      "degreesLongitude": 106.8456
+    }
+  }
+}</pre>
+    </div>
+  </div>
+
+  <!-- Send Buttons -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 api-card">
+    <div class="flex items-center gap-3 mb-3">
+      <span class="method-badge px-2 py-0.5 rounded bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400 font-bold">POST</span>
+      <code class="text-sm font-mono text-gray-700 dark:text-gray-300">/api/sessions/:sessionId/send-message</code>
+    </div>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Send a message with buttons.</p>
+
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Request Body</h4>
+    <div class="relative">
+      <pre class="code-block">{
+  "jid": "6281234567890@s.whatsapp.net",
+  "message": {
+    "text": "Choose an option:",
+    "footer": "Powered by WA Gateway",
+    "buttons": [
+      { "buttonId": "btn1", "buttonText": { "displayText": "Option 1" } },
+      { "buttonId": "btn2", "buttonText": { "displayText": "Option 2" } }
+    ],
+    "headerType": 1
+  }
+}</pre>
+    </div>
+  </div>
+
+  <!-- Divider -->
+  <div class="border-t border-gray-200 dark:border-gray-800 my-2"></div>
+
+  <!-- Webhook Setup -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 api-card">
+    <div class="flex items-center gap-3 mb-3">
+      <span class="method-badge px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 font-bold">PUT</span>
+      <code class="text-sm font-mono text-gray-700 dark:text-gray-300">/api/sessions/:sessionId/webhook</code>
+    </div>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Set a webhook URL for a specific device/session. All incoming messages will be forwarded to this URL via POST.</p>
+
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Request Body</h4>
+    <div class="relative">
+      <pre class="code-block">{
+  "url": "https://hook.eu2.make.com/your-webhook-id"
+}</pre>
+    </div>
+
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mt-4 mb-2">Response</h4>
+    <div class="relative">
+      <pre class="code-block">{
+  "message": "Webhook updated",
+  "sessionId": "device-1",
+  "url": "https://hook.eu2.make.com/your-webhook-id"
+}</pre>
+    </div>
+  </div>
+
+  <!-- Global Webhook -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 api-card">
+    <div class="flex items-center gap-3 mb-3">
+      <span class="method-badge px-2 py-0.5 rounded bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400 font-bold">POST</span>
+      <code class="text-sm font-mono text-gray-700 dark:text-gray-300">/api/settings/webhook</code>
+    </div>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Set a global webhook that receives messages from <strong>all</strong> devices.</p>
+
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Request Body</h4>
+    <div class="relative">
+      <pre class="code-block">{
+  "url": "https://hook.eu2.make.com/your-global-webhook-id"
+}</pre>
+    </div>
+  </div>
+
+  <!-- Get Global Webhook -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 api-card">
+    <div class="flex items-center gap-3 mb-3">
+      <span class="method-badge px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 font-bold">GET</span>
+      <code class="text-sm font-mono text-gray-700 dark:text-gray-300">/api/settings/webhook</code>
+    </div>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Get the current global webhook URL.</p>
+
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Response</h4>
+    <div class="relative">
+      <pre class="code-block">{
+  "url": "https://hook.eu2.make.com/your-global-webhook-id"
+}</pre>
+    </div>
+  </div>
+
+  <!-- Divider -->
+  <div class="border-t border-gray-200 dark:border-gray-800 my-2"></div>
+
+  <!-- Webhook Payload -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+    <h3 class="text-sm font-semibold mb-3">Webhook Payload Format</h3>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">When a message is received, a <code class="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs">POST</code> request is sent to your webhook URL with the following payload:</p>
+
+    <div class="relative">
+      <pre class="code-block">{
+  "sessionId": "device-1",
+  "event": "message",
+  "data": {
+    "key": {
+      "remoteJid": "6281234567890@s.whatsapp.net",
+      "fromMe": false,
+      "id": "BAE5A1234567890"
+    },
+    "pushName": "John Doe",
+    "message": {
+      "conversation": "Hello, this is a test message"
+    },
+    "messageTimestamp": 1707868800
+  }
+}</pre>
+    </div>
+
+    <div class="mt-4 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 rounded-lg p-3">
+      <p class="text-xs text-amber-700 dark:text-amber-400"><strong>Make.com Tip:</strong> In Make.com, create a <strong>Custom Webhook</strong> module as the trigger. Copy the webhook URL and set it via the API or in the Devices page. The incoming data will be automatically parsed.</p>
+    </div>
+  </div>
+
+  <!-- cURL Examples -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+    <h3 class="text-sm font-semibold mb-3">Quick Examples (cURL)</h3>
+
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Send Text</h4>
+    <div class="relative">
+      <pre class="code-block">curl -X POST <%= baseUrl %>/api/sessions/device-1/send-message \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jid": "6281234567890@s.whatsapp.net",
+    "message": { "text": "Hello from cURL!" }
+  }'</pre>
+    </div>
+
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mt-4 mb-2">Set Webhook</h4>
+    <div class="relative">
+      <pre class="code-block">curl -X PUT <%= baseUrl %>/api/sessions/device-1/webhook \
+  -H "Content-Type: application/json" \
+  -d '{ "url": "https://hook.eu2.make.com/your-id" }'</pre>
+    </div>
+  </div>
+
+</div>

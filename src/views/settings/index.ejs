@@ -1,0 +1,63 @@
+<% if (success) { %>
+  <div class="bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg mb-5 text-sm">
+    Settings saved successfully.
+  </div>
+<% } %>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+  <!-- Site Name -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+    <h3 class="text-sm font-semibold mb-4">General</h3>
+    <form method="POST" action="/settings" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Site Name</label>
+        <input type="text" name="siteName" value="<%= settings.siteName || 'WA Gateway' %>"
+          class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+        <p class="text-xs text-gray-400 mt-1">Displayed in sidebar and browser tab</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Base URL</label>
+        <input type="text" name="baseUrl" value="<%= settings.baseUrl || '' %>" placeholder="https://wa.yourdomain.com"
+          class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+        <p class="text-xs text-gray-400 mt-1">Production URL used in API documentation (e.g. https://wa.yourdomain.com)</p>
+      </div>
+      <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow-sm">Save</button>
+    </form>
+  </div>
+
+  <!-- Favicon -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+    <h3 class="text-sm font-semibold mb-4">Favicon</h3>
+    <div class="flex items-center gap-4 mb-4">
+      <% if (settings.favicon) { %>
+        <img src="<%= settings.favicon %>" alt="Favicon" class="w-10 h-10 rounded-lg border border-gray-200 dark:border-gray-700 object-contain bg-white dark:bg-gray-800 p-1">
+      <% } else { %>
+        <div class="w-10 h-10 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 text-xs">None</div>
+      <% } %>
+      <p class="text-xs text-gray-500 dark:text-gray-400">Upload a .ico or .png file (recommended 32x32)</p>
+    </div>
+    <form action="/settings/upload/favicon" method="POST" enctype="multipart/form-data" class="flex items-center gap-3">
+      <input type="file" name="file" accept=".ico,.png,.svg" required
+        class="text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-gray-100 dark:file:bg-gray-800 file:text-sm file:font-medium file:text-gray-700 dark:file:text-gray-300 hover:file:bg-gray-200 dark:hover:file:bg-gray-700 file:cursor-pointer file:transition">
+      <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm">Upload</button>
+    </form>
+  </div>
+
+  <!-- Logo -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 lg:col-span-2">
+    <h3 class="text-sm font-semibold mb-4">Logo</h3>
+    <div class="flex items-center gap-4 mb-4">
+      <% if (settings.logo) { %>
+        <img src="<%= settings.logo %>" alt="Logo" class="h-12 rounded-lg border border-gray-200 dark:border-gray-700 object-contain bg-white dark:bg-gray-800 p-1">
+      <% } else { %>
+        <div class="h-12 w-24 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 text-xs">No logo</div>
+      <% } %>
+      <p class="text-xs text-gray-500 dark:text-gray-400">Displayed in the sidebar header. Upload PNG/SVG (recommended height: 32px)</p>
+    </div>
+    <form action="/settings/upload/logo" method="POST" enctype="multipart/form-data" class="flex items-center gap-3">
+      <input type="file" name="file" accept=".png,.svg,.jpg,.jpeg" required
+        class="text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-gray-100 dark:file:bg-gray-800 file:text-sm file:font-medium file:text-gray-700 dark:file:text-gray-300 hover:file:bg-gray-200 dark:hover:file:bg-gray-700 file:cursor-pointer file:transition">
+      <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm">Upload</button>
+    </form>
+  </div>
+</div>

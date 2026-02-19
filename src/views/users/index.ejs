@@ -1,0 +1,72 @@
+<div class="flex items-center justify-between mb-5">
+  <div>
+    <p class="text-sm text-gray-500 dark:text-gray-400"><%= pagination.total %> users total</p>
+  </div>
+  <a href="/users/create" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm">+ Add User</a>
+</div>
+
+<div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="border-b border-gray-100 dark:border-gray-800">
+        <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Name</th>
+        <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Username</th>
+        <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Role</th>
+        <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Status</th>
+        <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Created</th>
+        <th class="px-5 py-2.5 text-right text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+      <% if (users.length === 0) { %>
+        <tr><td colspan="6" class="px-5 py-8 text-center text-gray-400">No users found</td></tr>
+      <% } %>
+      <% users.forEach(u => { %>
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+          <td class="px-5 py-3 font-medium"><%= u.name %></td>
+          <td class="px-5 py-3 text-gray-600 dark:text-gray-300"><%= u.username %></td>
+          <td class="px-5 py-3">
+            <span class="inline-flex px-2 py-0.5 rounded text-[11px] font-medium
+              <%= u.role === 'superadmin' ? 'bg-red-100 dark:bg-red-500/10 text-red-700 dark:text-red-400'
+                : u.role === 'admin' ? 'bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400' %>">
+              <%= u.role %>
+            </span>
+          </td>
+          <td class="px-5 py-3">
+            <span class="inline-flex items-center gap-1.5 text-xs font-medium <%= u.isActive ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400' %>">
+              <span class="w-1.5 h-1.5 rounded-full <%= u.isActive ? 'bg-green-500' : 'bg-red-500' %>"></span>
+              <%= u.isActive ? 'Active' : 'Inactive' %>
+            </span>
+          </td>
+          <td class="px-5 py-3 text-gray-400 whitespace-nowrap"><%= new Date(u.createdAt).toLocaleDateString() %></td>
+          <td class="px-5 py-3 text-right">
+            <div class="flex items-center justify-end gap-2">
+              <a href="/users/<%= u.id %>/edit" class="px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded transition">Edit</a>
+              <% if (u.id !== user.id) { %>
+                <form method="POST" action="/users/<%= u.id %>/delete" class="inline" onsubmit="return confirm('Delete this user?')">
+                  <button type="submit" class="px-2.5 py-1 text-xs font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition">Delete</button>
+                </form>
+              <% } %>
+            </div>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<!-- Pagination -->
+<% if (pagination.totalPages > 1) { %>
+  <div class="flex items-center justify-between mt-4">
+    <p class="text-xs text-gray-500 dark:text-gray-400">Page <%= pagination.page %> of <%= pagination.totalPages %></p>
+    <div class="flex gap-2">
+      <% if (pagination.page > 1) { %>
+        <a href="/users?page=<%= pagination.page - 1 %>" class="px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">← Previous</a>
+      <% } %>
+      <% if (pagination.page < pagination.totalPages) { %>
+        <a href="/users?page=<%= pagination.page + 1 %>" class="px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">Next →</a>
+      <% } %>
+    </div>
+  </div>
+<% } %>

@@ -1,0 +1,85 @@
+import os from 'os';
+import { getAllSessions } from '../whatsapp.js';
+
+export const index = (req, res) => {
+  const uptime = process.uptime();
+  const mem = process.memoryUsage();
+  const cpus = os.cpus();
+  const sessions = getAllSessions();
+
+  const activeCount = Object.values(sessions).filter(s => s.status === 'connected').length;
+  const totalCount = Object.keys(sessions).length;
+
+  const loadAvg = os.loadavg();
+
+  res.render('monitor/index', {
+    title: 'Server Monitor',
+    server: {
+      platform: os.platform(),
+      arch: os.arch(),
+      nodeVersion: process.version,
+      uptime: formatUptime(uptime),
+      uptimeSeconds: Math.floor(uptime),
+      hostname: os.hostname(),
+    },
+    memory: {
+      rss: formatBytes(mem.rss),
+      heapUsed: formatBytes(mem.heapUsed),
+      heapTotal: formatBytes(mem.heapTotal),
+      external: formatBytes(mem.external),
+      systemTotal: formatBytes(os.totalmem()),
+      systemFree: formatBytes(os.freemem()),
+      systemUsedPercent: ((1 - os.freemem() / os.totalmem()) * 100).toFixed(1),
+    },
+    cpu: {
+      model: cpus[0]?.model || 'N/A',
+      cores: cpus.length,
+      loadAvg: loadAvg.map(l => l.toFixed(2)),
+    },
+    sessions: {
+      active: activeCount,
+      total: totalCount,
+    },
+  });
+};
+
+// API for auto-refresh
+export const stats = (req, res) => {
+  const mem = process.memoryUsage();
+  const sessions = getAllSessions();
+  const activeCount = Object.values(sessions).filter(s => s.status === 'connected').length;
+
+  res.json({
+    uptime: formatUptime(process.uptime()),
+    uptimeSeconds: Math.floor(process.uptime()),
+    memoryRss: formatBytes(mem.rss),
+    heapUsed: formatBytes(mem.heapUsed),
+    heapTotal: formatBytes(mem.heapTotal),
+    systemFree: formatBytes(os.freemem()),
+    systemUsedPercent: ((1 - os.freemem() / os.totalmem()) * 100).toFixed(1),
+    loadAvg: os.loadavg().map(l => l.toFixed(2)),
+    activeSessions: activeCount,
+    totalSessions: Object.keys(sessions).length,
+  });
+};
+
+function formatUptime(seconds) {
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const parts = [];
+  if (d > 0) parts.push(`${d}d`);
+  if (h > 0) parts.push(`${h}h`);
+  if (m > 0) parts.push(`${m}m`);
+  parts.push(`${s}s`);
+  return parts.join(' ');
+}
+
+function formatBytes(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}

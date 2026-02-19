@@ -1,0 +1,97 @@
+<!-- Stats cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+  <div class="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Active Sessions</p>
+        <p class="text-2xl font-bold mt-1"><%= stats.activeSessions %></p>
+      </div>
+      <div class="w-9 h-9 bg-green-100 dark:bg-green-500/10 rounded-lg flex items-center justify-center">
+        <svg class="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Devices</p>
+        <p class="text-2xl font-bold mt-1"><%= stats.totalDevices %></p>
+      </div>
+      <div class="w-9 h-9 bg-blue-100 dark:bg-blue-500/10 rounded-lg flex items-center justify-center">
+        <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Messages Today</p>
+        <p class="text-2xl font-bold mt-1"><%= stats.messagesToday %></p>
+      </div>
+      <div class="w-9 h-9 bg-purple-100 dark:bg-purple-500/10 rounded-lg flex items-center justify-center">
+        <svg class="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Messages</p>
+        <p class="text-2xl font-bold mt-1"><%= stats.totalMessages %></p>
+      </div>
+      <div class="w-9 h-9 bg-orange-100 dark:bg-orange-500/10 rounded-lg flex items-center justify-center">
+        <svg class="w-4 h-4 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Users</p>
+        <p class="text-2xl font-bold mt-1"><%= stats.totalUsers %></p>
+      </div>
+      <div class="w-9 h-9 bg-indigo-100 dark:bg-indigo-500/10 rounded-lg flex items-center justify-center">
+        <svg class="w-4 h-4 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Messages -->
+<div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
+  <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+    <h2 class="text-sm font-semibold">Recent Messages</h2>
+    <a href="/messages" class="text-xs text-green-600 dark:text-green-400 hover:underline font-medium">View All →</a>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-gray-100 dark:border-gray-800">
+          <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Direction</th>
+          <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Device</th>
+          <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Contact</th>
+          <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Content</th>
+          <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Time</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+        <% if (recentMessages.length === 0) { %>
+          <tr><td colspan="5" class="px-5 py-8 text-center text-gray-400 text-sm">No messages yet</td></tr>
+        <% } %>
+        <% recentMessages.forEach(msg => { %>
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+            <td class="px-5 py-2.5">
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium <%= msg.fromMe ? 'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400' : 'bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400' %>">
+                <%= msg.fromMe ? '↑ Out' : '↓ In' %>
+              </span>
+            </td>
+            <td class="px-5 py-2.5 text-gray-600 dark:text-gray-300"><%= msg.sessionId %></td>
+            <td class="px-5 py-2.5 text-gray-600 dark:text-gray-300 font-mono text-xs"><%= msg.remoteJid ? msg.remoteJid.split('@')[0] : '-' %></td>
+            <td class="px-5 py-2.5 text-gray-600 dark:text-gray-300 max-w-xs truncate"><%= msg.content || msg.messageType %></td>
+            <td class="px-5 py-2.5 text-gray-400 whitespace-nowrap"><%= new Date(msg.createdAt).toLocaleString() %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>

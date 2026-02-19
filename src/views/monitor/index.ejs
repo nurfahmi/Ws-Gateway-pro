@@ -1,0 +1,68 @@
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+    <p class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Uptime</p>
+    <p class="text-xl font-bold mt-1" id="s-uptime"><%= server.uptime %></p>
+  </div>
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+    <p class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Memory (RSS)</p>
+    <p class="text-xl font-bold mt-1" id="s-rss"><%= memory.rss %></p>
+  </div>
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+    <p class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">System Memory</p>
+    <p class="text-xl font-bold mt-1"><span id="s-syspct"><%= memory.systemUsedPercent %></span>%</p>
+    <div class="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-1.5 mt-2">
+      <div class="bg-green-500 h-1.5 rounded-full transition-all" id="s-syspctbar" style="width:<%= memory.systemUsedPercent %>%"></div>
+    </div>
+  </div>
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+    <p class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Active Sessions</p>
+    <p class="text-xl font-bold mt-1"><span id="s-active"><%= sessions.active %></span> / <span id="s-total"><%= sessions.total %></span></p>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+    <h3 class="text-sm font-semibold mb-4">Server Info</h3>
+    <table class="w-full text-sm">
+      <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+        <tr><td class="py-2 text-gray-500 dark:text-gray-400">Hostname</td><td class="py-2 text-right font-medium"><%= server.hostname %></td></tr>
+        <tr><td class="py-2 text-gray-500 dark:text-gray-400">Platform</td><td class="py-2 text-right font-medium"><%= server.platform %> (<%= server.arch %>)</td></tr>
+        <tr><td class="py-2 text-gray-500 dark:text-gray-400">Node.js</td><td class="py-2 text-right font-medium"><%= server.nodeVersion %></td></tr>
+        <tr><td class="py-2 text-gray-500 dark:text-gray-400">CPU</td><td class="py-2 text-right font-medium"><%= cpu.model %></td></tr>
+        <tr><td class="py-2 text-gray-500 dark:text-gray-400">CPU Cores</td><td class="py-2 text-right font-medium"><%= cpu.cores %></td></tr>
+        <tr><td class="py-2 text-gray-500 dark:text-gray-400">Load Average</td><td class="py-2 text-right font-medium" id="s-load"><%= cpu.loadAvg.join(' / ') %></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+    <h3 class="text-sm font-semibold mb-4">Memory Details</h3>
+    <table class="w-full text-sm">
+      <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+        <tr><td class="py-2 text-gray-500 dark:text-gray-400">Heap Used</td><td class="py-2 text-right font-medium" id="s-heap"><%= memory.heapUsed %></td></tr>
+        <tr><td class="py-2 text-gray-500 dark:text-gray-400">Heap Total</td><td class="py-2 text-right font-medium" id="s-heaptotal"><%= memory.heapTotal %></td></tr>
+        <tr><td class="py-2 text-gray-500 dark:text-gray-400">External</td><td class="py-2 text-right font-medium"><%= memory.external %></td></tr>
+        <tr><td class="py-2 text-gray-500 dark:text-gray-400">System Total</td><td class="py-2 text-right font-medium"><%= memory.systemTotal %></td></tr>
+        <tr><td class="py-2 text-gray-500 dark:text-gray-400">System Free</td><td class="py-2 text-right font-medium" id="s-sysfree"><%= memory.systemFree %></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  setInterval(async () => {
+    try {
+      const res = await fetch('/monitor/stats');
+      const d = await res.json();
+      document.getElementById('s-uptime').textContent = d.uptime;
+      document.getElementById('s-rss').textContent = d.memoryRss;
+      document.getElementById('s-syspct').textContent = d.systemUsedPercent;
+      document.getElementById('s-syspctbar').style.width = d.systemUsedPercent + '%';
+      document.getElementById('s-active').textContent = d.activeSessions;
+      document.getElementById('s-total').textContent = d.totalSessions;
+      document.getElementById('s-heap').textContent = d.heapUsed;
+      document.getElementById('s-heaptotal').textContent = d.heapTotal;
+      document.getElementById('s-sysfree').textContent = d.systemFree;
+      document.getElementById('s-load').textContent = d.loadAvg.join(' / ');
+    } catch (e) {}
+  }, 5000);
+</script>
