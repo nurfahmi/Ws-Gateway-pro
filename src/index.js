@@ -8,6 +8,7 @@ import cors from 'cors';
 
 import { initDb } from './db.js';
 import { restoreSessions, initGlobalWebhook } from './whatsapp.js';
+import { initSetup } from './controllers/setupController.js';
 import routes from './routes/index.js';
 
 // Import all API route handlers from the original setup
@@ -246,6 +247,7 @@ app.use('/', routes);
 // ===== Start Server =====
 const startServer = async () => {
   await initDb();
+  await initSetup();
   await initGlobalWebhook();
   await restoreSessions();
 

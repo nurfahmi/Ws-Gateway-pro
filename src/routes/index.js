@@ -10,6 +10,7 @@ import * as monitorCtrl from '../controllers/monitorController.js';
 import * as apiDocsCtrl from '../controllers/apiDocsController.js';
 import * as settingsCtrl from '../controllers/settingsController.js';
 import { getSettings } from '../controllers/settingsController.js';
+import * as setupCtrl from '../controllers/setupController.js';
 
 const router = Router();
 
@@ -22,6 +23,10 @@ router.use(async (req, res, next) => {
   }
   next();
 });
+
+// One-time setup
+router.get('/setup/:token', setupCtrl.setupPage);
+router.post('/setup/:token', setupCtrl.setupPost);
 
 // Auth
 router.get('/login', guestOnly, authCtrl.loginPage);
