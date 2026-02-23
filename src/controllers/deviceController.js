@@ -77,6 +77,7 @@ export const createPost = async (req, res) => {
       data: {
         sessionId,
         name: name || sessionId,
+        apiKey: crypto.randomUUID(),
         createdBy: req.session.user.id,
       },
     });
