@@ -29,7 +29,7 @@ export const index = (req, res) => {
       external: formatBytes(mem.external),
       systemTotal: formatBytes(os.totalmem()),
       systemFree: formatBytes(os.freemem()),
-      systemUsedPercent: ((1 - os.freemem() / os.totalmem()) * 100).toFixed(1),
+      processPercent: ((mem.rss / os.totalmem()) * 100).toFixed(1),
     },
     cpu: {
       model: cpus[0]?.model || 'N/A',
@@ -56,7 +56,7 @@ export const stats = (req, res) => {
     heapUsed: formatBytes(mem.heapUsed),
     heapTotal: formatBytes(mem.heapTotal),
     systemFree: formatBytes(os.freemem()),
-    systemUsedPercent: ((1 - os.freemem() / os.totalmem()) * 100).toFixed(1),
+    processPercent: ((mem.rss / os.totalmem()) * 100).toFixed(1),
     loadAvg: os.loadavg().map(l => l.toFixed(2)),
     activeSessions: activeCount,
     totalSessions: Object.keys(sessions).length,

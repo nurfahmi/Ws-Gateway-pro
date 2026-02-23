@@ -8,10 +8,10 @@
     <p class="text-xl font-bold mt-1" id="s-rss"><%= memory.rss %></p>
   </div>
   <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-    <p class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">System Memory</p>
-    <p class="text-xl font-bold mt-1"><span id="s-syspct"><%= memory.systemUsedPercent %></span>%</p>
+    <p class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Process Memory</p>
+    <p class="text-xl font-bold mt-1"><span id="s-syspct"><%= memory.processPercent %></span>%</p>
     <div class="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-1.5 mt-2">
-      <div class="bg-green-500 h-1.5 rounded-full transition-all" id="s-syspctbar" style="width:<%= memory.systemUsedPercent %>%"></div>
+      <div class="bg-green-500 h-1.5 rounded-full transition-all" id="s-syspctbar" style="width:<%= memory.processPercent %>%"></div>
     </div>
   </div>
   <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
@@ -55,8 +55,8 @@
       const d = await res.json();
       document.getElementById('s-uptime').textContent = d.uptime;
       document.getElementById('s-rss').textContent = d.memoryRss;
-      document.getElementById('s-syspct').textContent = d.systemUsedPercent;
-      document.getElementById('s-syspctbar').style.width = d.systemUsedPercent + '%';
+      document.getElementById('s-syspct').textContent = d.processPercent;
+      document.getElementById('s-syspctbar').style.width = d.processPercent + '%';
       document.getElementById('s-active').textContent = d.activeSessions;
       document.getElementById('s-total').textContent = d.totalSessions;
       document.getElementById('s-heap').textContent = d.heapUsed;

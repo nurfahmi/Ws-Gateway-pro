@@ -134,6 +134,18 @@ export const updateWebhookUrl = async (req, res) => {
   }
 };
 
+// Delete unregistered session by sessionId (superadmin only)
+export const deleteBySessionId = async (req, res) => {
+  const { sessionId } = req.params;
+  try {
+    await deleteWASession(sessionId);
+    res.redirect('/devices');
+  } catch (err) {
+    console.error(err);
+    res.redirect('/devices');
+  }
+};
+
 // API endpoint to get QR and status for polling
 export const getStatus = async (req, res) => {
   const { id } = req.params;
