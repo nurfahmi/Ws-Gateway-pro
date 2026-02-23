@@ -414,7 +414,6 @@ const deleteSession = async (sessionId) => {
     if (session) {
         if (session.sock) {
             try {
-                // Try to properly logout from WhatsApp servers
                 if (session.status === 'connected') {
                     await session.sock.logout();
                 } else {
@@ -422,13 +421,22 @@ const deleteSession = async (sessionId) => {
                 }
             } catch (err) {
                 console.error(`[${sessionId}] Logout failed, forcing cleanup:`, err.message);
-                session.sock.end(undefined);
+                try { session.sock.end(undefined); } catch(e) {}
             }
         }
         sessions.delete(sessionId);
-        // Clean up from DB
-        await pool.query('DELETE FROM session_store WHERE id LIKE ?', [`${sessionId}:%`]);
     }
+    // Clean up ALL session data from DB (auth keys, webhook, etc.)
+    try {
+        await pool.query('DELETE FROM session_store WHERE id LIKE ?', [`${sessionId}:%`]);
+        await pool.query('DELETE FROM session_store WHERE id = ?', [sessionId]);
+        console.log(`[${sessionId}] Session fully deleted from DB`);
+    } catch(e) {
+        console.error(`[${sessionId}] DB cleanup error:`, e.message);
+    }
+    // Also clean up memory stores
+    messageStore.delete(sessionId);
+    contactStore.delete(sessionId);
 };
 
 // Restore sessions from DB on startup
