@@ -73,7 +73,7 @@ export const createPost = async (req, res) => {
   if (!sessionId) return res.redirect('/devices');
 
   try {
-    await prisma.device.create({
+    const device = await prisma.device.create({
       data: {
         sessionId,
         name: name || sessionId,
@@ -82,7 +82,7 @@ export const createPost = async (req, res) => {
       },
     });
     await createSession(sessionId);
-    res.redirect('/devices');
+    res.redirect('/devices?new=' + device.id);
   } catch (err) {
     if (err.code === 'P2002') {
       return res.redirect('/devices?error=Device+already+exists');
