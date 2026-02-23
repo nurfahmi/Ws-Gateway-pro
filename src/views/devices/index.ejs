@@ -33,6 +33,7 @@
       <tr class="border-b border-gray-100 dark:border-gray-800">
         <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Device</th>
         <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Session ID</th>
+        <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">API Key</th>
         <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Status</th>
         <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">QR</th>
         <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Webhook</th>
@@ -42,7 +43,7 @@
     </thead>
     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
       <% if (devices.length === 0) { %>
-        <tr><td colspan="7" class="px-5 py-10 text-center text-gray-400">No devices found</td></tr>
+        <tr><td colspan="8" class="px-5 py-10 text-center text-gray-400">No devices found</td></tr>
       <% } %>
       <% devices.forEach(d => { %>
         <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors" id="device-<%= d.id || d.sessionId %>" data-session="<%= d.sessionId %>">
@@ -53,6 +54,18 @@
             <% } %>
           </td>
           <td class="px-5 py-3 text-gray-500 dark:text-gray-400 font-mono text-xs"><%= d.sessionId %></td>
+          <td class="px-5 py-3">
+            <% if (d.apiKey) { %>
+              <div class="flex items-center gap-1">
+                <code class="text-[10px] font-mono text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded max-w-[120px] truncate" id="apikey-<%= d.id %>" title="<%= d.apiKey %>"><%= d.apiKey.substring(0,8) %>...</code>
+                <button onclick="copyApiKey('<%= d.apiKey %>')" class="text-gray-400 hover:text-green-500 transition" title="Copy API Key">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                </button>
+              </div>
+            <% } else { %>
+              <span class="text-xs text-gray-400">—</span>
+            <% } %>
+          </td>
           <td class="px-5 py-3">
             <span class="status-badge inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium
               <%= d.liveStatus === 'connected' ? 'bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400' :
@@ -90,6 +103,9 @@
                   <button type="submit" class="px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded transition">Restart</button>
                 </form>
                 <button onclick="openWebhookModal(<%= d.id %>, '<%= (d.webhookUrl || '').replace(/'/g, "\\'") %>')" class="px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition">Webhook</button>
+                <form method="POST" action="/devices/<%= d.id %>/regenerate-key" class="inline" onsubmit="return confirm('Regenerate API key? The old key will stop working.')">
+                  <button type="submit" class="px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded transition">Regen Key</button>
+                </form>
                 <form method="POST" action="/devices/<%= d.id %>/delete" class="inline" onsubmit="return confirm('Remove this device?')">
                   <button type="submit" class="px-2.5 py-1 text-xs font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition">Remove</button>
                 </form>
@@ -161,6 +177,11 @@
   function closeQR() {
     document.getElementById('qrModal').classList.add('hidden');
     document.getElementById('qrModal').classList.remove('flex');
+  }
+  function copyApiKey(key) {
+    navigator.clipboard.writeText(key).then(() => {
+      alert('API Key copied!');
+    });
   }
   function openWebhookModal(id, url) {
     document.getElementById('webhookForm').action = '/devices/' + id + '/webhook';

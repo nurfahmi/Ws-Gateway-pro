@@ -1,4 +1,5 @@
 import prisma from '../lib/prisma.js';
+import crypto from 'crypto';
 import { createSession, getSession, getAllSessions, deleteSession as deleteWASession, updateWebhook } from '../whatsapp.js';
 
 export const index = async (req, res) => {
@@ -35,6 +36,7 @@ export const index = async (req, res) => {
           sessionId,
           name: sessionId,
           phoneNumber: null,
+          apiKey: null,
           status: sess.status,
           webhookUrl: sess.webhookUrl || null,
           createdBy: null,
@@ -127,6 +129,21 @@ export const updateWebhookUrl = async (req, res) => {
       await prisma.device.update({ where: { id: parseInt(id) }, data: { webhookUrl } });
       await updateWebhook(device.sessionId, webhookUrl);
     }
+    res.redirect('/devices');
+  } catch (err) {
+    console.error(err);
+    res.redirect('/devices');
+  }
+};
+
+// Regenerate API key for a device
+export const regenerateApiKey = async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.device.update({
+      where: { id: parseInt(id) },
+      data: { apiKey: crypto.randomUUID() },
+    });
     res.redirect('/devices');
   } catch (err) {
     console.error(err);

@@ -10,6 +10,7 @@ import { initDb } from './db.js';
 import { restoreSessions, initGlobalWebhook } from './whatsapp.js';
 import { initSetup } from './controllers/setupController.js';
 import routes from './routes/index.js';
+import { apiKeyAuth } from './middleware/apiKeyAuth.js';
 
 // Import all API route handlers from the original setup
 import {
@@ -61,42 +62,42 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(expressLayouts);
 app.set('layout', 'layout');
 
-// ===== API Routes (backward compatible, no session auth) =====
-app.get('/api/sessions', (req, res) => {
+// ===== API Routes (protected by API key) =====
+app.get('/api/sessions', apiKeyAuth, (req, res) => {
   res.json(getAllSessions());
 });
 
-app.post('/api/sessions', async (req, res) => {
+app.post('/api/sessions', apiKeyAuth, async (req, res) => {
   const { sessionId } = req.body;
   if (!sessionId) return res.status(400).json({ error: 'sessionId required' });
   await createSession(sessionId);
   res.json({ message: 'Session initialization started', sessionId });
 });
 
-app.get('/api/sessions/:id', (req, res) => {
+app.get('/api/sessions/:id', apiKeyAuth, (req, res) => {
   const session = getSession(req.params.id);
   if (!session) return res.status(404).json({ error: 'Session not found' });
   res.json({ status: session.status, qr: session.qr });
 });
 
-app.delete('/api/sessions', async (req, res) => {
+app.delete('/api/sessions', apiKeyAuth, async (req, res) => {
   const sessions = getAllSessions();
   const sessionIds = Object.keys(sessions);
   for (const id of sessionIds) { await deleteSession(id); }
   res.json({ message: 'All sessions deleted', count: sessionIds.length });
 });
 
-app.delete('/api/sessions/:id', async (req, res) => {
+app.delete('/api/sessions/:id', apiKeyAuth, async (req, res) => {
   await deleteSession(req.params.id);
   res.json({ message: 'Session deleted' });
 });
 
-app.post('/api/sessions/:id/restart', async (req, res) => {
+app.post('/api/sessions/:id/restart', apiKeyAuth, async (req, res) => {
   await createSession(req.params.id);
   res.json({ message: 'Session restarted', sessionId: req.params.id });
 });
 
-app.put('/api/sessions/:id/webhook', async (req, res) => {
+app.put('/api/sessions/:id/webhook', apiKeyAuth, async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'url is required' });
   const success = await updateWebhook(req.params.id, url);
@@ -104,11 +105,11 @@ app.put('/api/sessions/:id/webhook', async (req, res) => {
   res.json({ message: 'Webhook updated', sessionId: req.params.id, url });
 });
 
-app.get('/api/settings/webhook', (req, res) => {
+app.get('/api/settings/webhook', apiKeyAuth, (req, res) => {
   res.json({ url: getGlobalWebhook() || '' });
 });
 
-app.post('/api/settings/webhook', async (req, res) => {
+app.post('/api/settings/webhook', apiKeyAuth, async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'url required' });
   if (await setGlobalWebhook(url)) {
@@ -118,7 +119,7 @@ app.post('/api/settings/webhook', async (req, res) => {
   }
 });
 
-app.post('/api/sessions/:id/send-message', async (req, res) => {
+app.post('/api/sessions/:id/send-message', apiKeyAuth, async (req, res) => {
   const { id } = req.params;
   const { jid, message } = req.body;
   const session = getSession(id);
@@ -134,7 +135,7 @@ app.post('/api/sessions/:id/send-message', async (req, res) => {
   }
 });
 
-app.post('/api/sessions/:id/read', async (req, res) => {
+app.post('/api/sessions/:id/read', apiKeyAuth, async (req, res) => {
   const { id } = req.params;
   const { messages } = req.body;
   if (!messages || (!Array.isArray(messages) && !messages.remoteJid)) {
@@ -153,7 +154,7 @@ app.post('/api/sessions/:id/read', async (req, res) => {
   }
 });
 
-app.post('/api/sessions/:id/presence', async (req, res) => {
+app.post('/api/sessions/:id/presence', apiKeyAuth, async (req, res) => {
   const { id } = req.params;
   const { jid, presence } = req.body;
   if (!jid || !presence) {
@@ -175,7 +176,7 @@ app.post('/api/sessions/:id/presence', async (req, res) => {
   }
 });
 
-app.post('/api/sessions/:id/download-media', async (req, res) => {
+app.post('/api/sessions/:id/download-media', apiKeyAuth, async (req, res) => {
   const { id } = req.params;
   const { message } = req.body;
   if (!message || !message.message) {
@@ -193,24 +194,24 @@ app.post('/api/sessions/:id/download-media', async (req, res) => {
   }
 });
 
-app.get('/api/sessions/:id/messages/:messageId/status', (req, res) => {
+app.get('/api/sessions/:id/messages/:messageId/status', apiKeyAuth, (req, res) => {
   const status = getMessageStatus(req.params.id, req.params.messageId);
   if (!status) return res.status(404).json({ error: 'Message not found' });
   res.json(status);
 });
 
-app.get('/api/sessions/:id/messages', (req, res) => {
+app.get('/api/sessions/:id/messages', apiKeyAuth, (req, res) => {
   const session = getSession(req.params.id);
   if (!session) return res.status(404).json({ error: 'Session not found' });
   const messages = getSessionMessages(req.params.id, parseInt(req.query.limit) || 50);
   res.json({ sessionId: req.params.id, count: messages.length, messages });
 });
 
-app.get('/api/message-status-codes', (req, res) => {
+app.get('/api/message-status-codes', apiKeyAuth, (req, res) => {
   res.json({ codes: STATUS_MAP });
 });
 
-app.get('/api/sessions/:id/profile-picture/:jid', async (req, res) => {
+app.get('/api/sessions/:id/profile-picture/:jid', apiKeyAuth, async (req, res) => {
   const session = getSession(req.params.id);
   if (!session || session.status !== 'connected') {
     return res.status(400).json({ error: 'Session not connected' });
@@ -223,14 +224,14 @@ app.get('/api/sessions/:id/profile-picture/:jid', async (req, res) => {
   }
 });
 
-app.get('/api/sessions/:id/contacts', (req, res) => {
+app.get('/api/sessions/:id/contacts', apiKeyAuth, (req, res) => {
   const session = getSession(req.params.id);
   if (!session) return res.status(404).json({ error: 'Session not found' });
   const contacts = getAllContacts(req.params.id);
   res.json({ sessionId: req.params.id, count: contacts.length, contacts });
 });
 
-app.get('/api/sessions/:id/contacts/:jid', async (req, res) => {
+app.get('/api/sessions/:id/contacts/:jid', apiKeyAuth, async (req, res) => {
   const session = getSession(req.params.id);
   if (!session) return res.status(404).json({ error: 'Session not found' });
   const contact = getContact(req.params.id, req.params.jid);

@@ -53,6 +53,7 @@ router.post('/devices/create', requireAuth, requireRole('superadmin', 'admin'), 
 router.post('/devices/:id/delete', requireAuth, requireRole('superadmin', 'admin'), deviceCtrl.deleteDevice);
 router.post('/devices/:id/restart', requireAuth, requireRole('superadmin', 'admin'), deviceCtrl.restartDevice);
 router.post('/devices/:id/webhook', requireAuth, requireRole('superadmin', 'admin'), deviceCtrl.updateWebhookUrl);
+router.post('/devices/:id/regenerate-key', requireAuth, requireRole('superadmin', 'admin'), deviceCtrl.regenerateApiKey);
 router.post('/devices/session/:sessionId/delete', requireAuth, requireRole('superadmin'), deviceCtrl.deleteBySessionId);
 router.get('/devices/:id/status', requireAuth, deviceCtrl.getStatus);
 

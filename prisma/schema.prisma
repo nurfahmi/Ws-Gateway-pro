@@ -26,6 +26,7 @@ model Device {
   sessionId   String    @unique @map("session_id") @db.VarChar(255)
   name        String?   @db.VarChar(255)
   phoneNumber String?   @map("phone_number") @db.VarChar(50)
+  apiKey      String    @unique @default(uuid()) @map("api_key") @db.VarChar(255)
   status      String    @default("disconnected") @db.VarChar(50)
   webhookUrl  String?   @map("webhook_url") @db.Text
   createdBy   Int?      @map("created_by")
