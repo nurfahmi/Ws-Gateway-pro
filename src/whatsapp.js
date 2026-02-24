@@ -227,6 +227,10 @@ const createSession = async (sessionId, io) => {
                 let content = '';
                 let messageType = 'text';
                 const m = msg.message;
+
+                // Skip internal system messages
+                if (m.protocolMessage || m.senderKeyDistributionMessage || m.messageContextInfo) continue;
+
                 if (m.conversation) { content = m.conversation; }
                 else if (m.extendedTextMessage) { content = m.extendedTextMessage.text || ''; }
                 else if (m.imageMessage) { messageType = 'image'; content = m.imageMessage.caption || ''; }
