@@ -1,5 +1,30 @@
 import prisma from '../lib/prisma.js';
 import { getSession } from '../whatsapp.js';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Configure multer for image uploads
+const uploadDir = path.join(__dirname, '../../uploads/chat');
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 16 * 1024 * 1024 }, // 16MB
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp',
+                     'video/mp4', 'video/3gpp',
+                     'application/pdf', 'application/msword',
+                     'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    cb(null, allowed.includes(file.mimetype));
+  },
+});
+
+export const uploadMiddleware = upload.single('file');
 
 // Render chat page
 export const index = async (req, res) => {
@@ -14,14 +39,6 @@ export const getChats = async (req, res) => {
   const { device } = req.query;
 
   try {
-    // Build session filter
-    let sessionFilter = '';
-    const params = [];
-    if (device) {
-      sessionFilter = 'AND m.session_id = ?';
-      params.push(device);
-    }
-
     const rawChats = await prisma.$queryRawUnsafe(`
       SELECT 
         m.session_id as sessionId,
@@ -45,7 +62,7 @@ export const getChats = async (req, res) => {
         GROUP BY session_id, remote_jid
       ) latest ON m.session_id = latest.session_id AND m.remote_jid = latest.remote_jid AND m.created_at = latest.max_date
       LEFT JOIN devices d ON d.session_id = m.session_id
-      WHERE 1=1 ${sessionFilter}
+      WHERE 1=1 ${device ? 'AND m.session_id = ?' : ''}
       ORDER BY m.created_at DESC
     `, ...(device ? [device, device] : []));
 
@@ -90,7 +107,6 @@ export const getMessages = async (req, res) => {
       prisma.message.count({ where }),
     ]);
 
-    // Convert BigInt to string for JSON serialization
     const messages = rawMessages.reverse().map(m => ({
       ...m,
       id: Number(m.id),
@@ -108,7 +124,7 @@ export const getMessages = async (req, res) => {
   }
 };
 
-// API: Send a message from chat UI
+// API: Send a text message from chat UI
 export const sendMessage = async (req, res) => {
   const { device, jid, text } = req.body;
   if (!device || !jid || !text) {
@@ -129,6 +145,47 @@ export const sendMessage = async (req, res) => {
     });
   } catch (error) {
     console.error('sendMessage error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// API: Send an image/file from chat UI
+export const sendMedia = async (req, res) => {
+  const { device, jid, caption } = req.body;
+  if (!device || !jid || !req.file) {
+    return res.status(400).json({ error: 'device, jid, and file are required' });
+  }
+
+  const session = getSession(device);
+  if (!session || session.status !== 'connected') {
+    return res.status(400).json({ error: 'Device not connected' });
+  }
+
+  try {
+    const mime = req.file.mimetype;
+    let msgPayload;
+
+    if (mime.startsWith('image/')) {
+      msgPayload = { image: req.file.buffer, caption: caption || undefined, mimetype: mime };
+    } else if (mime.startsWith('video/')) {
+      msgPayload = { video: req.file.buffer, caption: caption || undefined, mimetype: mime };
+    } else {
+      msgPayload = {
+        document: req.file.buffer,
+        mimetype: mime,
+        fileName: req.file.originalname,
+        caption: caption || undefined,
+      };
+    }
+
+    const result = await session.sendMessage(jid, msgPayload);
+    res.json({
+      success: true,
+      messageId: result?.key?.id,
+      timestamp: Date.now(),
+    });
+  } catch (error) {
+    console.error('sendMedia error:', error);
     res.status(500).json({ error: error.message });
   }
 };
