@@ -6,7 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import cors from 'cors';
 import { createServer } from 'http';
-import { Server } from 'socket.io';
+import { initSocketIO } from './socket.js';
 
 import { initDb } from './db.js';
 import { restoreSessions, initGlobalWebhook } from './whatsapp.js';
@@ -28,10 +28,8 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer);
+const io = initSocketIO(httpServer);
 const port = process.env.PORT || 3000;
-
-export { io };
 
 app.set('trust proxy', 1);
 app.use(cors());

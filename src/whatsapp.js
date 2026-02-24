@@ -258,18 +258,21 @@ const createSession = async (sessionId, io) => {
 
                     // Emit to Socket.IO for real-time chat
                     try {
-                        const { io } = await import('./index.js');
-                        io.emit('new-message', {
-                            id: Number(saved.id),
-                            sessionId,
-                            remoteJid: senderJid,
-                            fromMe: msg.key?.fromMe || false,
-                            pushName: msg.pushName || null,
-                            messageType,
-                            content: content ? content.substring(0, 5000) : null,
-                            status: 'received',
-                            createdAt: saved.createdAt,
-                        });
+                        const { getIO } = await import('./socket.js');
+                        const io = getIO();
+                        if (io) {
+                            io.emit('new-message', {
+                                id: Number(saved.id),
+                                sessionId,
+                                remoteJid: senderJid,
+                                fromMe: msg.key?.fromMe || false,
+                                pushName: msg.pushName || null,
+                                messageType,
+                                content: content ? content.substring(0, 5000) : null,
+                                status: 'received',
+                                createdAt: saved.createdAt,
+                            });
+                        }
                     } catch(e) {}
                 } catch (dbErr) {
                     console.error(`[${sessionId}] DB save failed:`, dbErr.message);
