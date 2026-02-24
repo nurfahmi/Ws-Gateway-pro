@@ -132,3 +132,32 @@ export const sendMessage = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// API: Get new messages since a given message ID
+export const getNewMessages = async (req, res) => {
+  const { device, jid, after } = req.query;
+  if (!device || !jid || !after) return res.json([]);
+
+  try {
+    const rawMessages = await prisma.message.findMany({
+      where: {
+        sessionId: device,
+        remoteJid: jid,
+        id: { gt: parseInt(after) },
+      },
+      orderBy: { id: 'asc' },
+      take: 50,
+    });
+
+    const messages = rawMessages.map(m => ({
+      ...m,
+      id: Number(m.id),
+      timestamp: m.timestamp ? m.timestamp.toString() : null,
+    }));
+
+    res.json(messages);
+  } catch (error) {
+    console.error('getNewMessages error:', error);
+    res.json([]);
+  }
+};

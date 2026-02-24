@@ -526,6 +526,7 @@
   let allChats = [];
   let activeJid = null;
   let activeDevice = null;
+  let lastMsgId = 0;
 
   // Device label colors
   const deviceColors = ['#25d366','#6366f1','#e11d48','#f59e0b','#06b6d4','#7c3aed','#128c7e','#075e54','#34b7f1','#00a884'];
@@ -798,6 +799,12 @@
 
       msgArea.appendChild(fragment);
       if (scroll) msgArea.scrollTop = msgArea.scrollHeight;
+
+      // Track last message ID for polling
+      if (data.messages.length) {
+        const maxId = Math.max(...data.messages.map(m => m.id));
+        if (maxId > lastMsgId) lastMsgId = maxId;
+      }
     } catch (e) {
       console.error('loadMessages error:', e);
       const msgArea = document.getElementById('msgArea');
@@ -890,5 +897,81 @@
 
   // Load all chats on page load
   loadChats();
+
+  // ─── Polling for live updates ───
+  // Poll every 3 seconds
+  setInterval(async () => {
+    // Don't poll if tab is hidden
+    if (document.hidden) return;
+
+    // 1. Refresh chat list
+    const device = deviceFilter.value;
+    try {
+      const url = device ? `/chat/api/chats?device=${encodeURIComponent(device)}` : '/chat/api/chats';
+      const resp = await fetch(url);
+      if (resp.ok) {
+        const newChats = await resp.json();
+        allChats = newChats;
+        // Only re-render if search is not active
+        if (!chatSearch.value) renderChats(allChats);
+      }
+    } catch(e) {}
+
+    // 2. Poll new messages for active chat
+    if (activeDevice && activeJid && lastMsgId > 0) {
+      try {
+        const resp = await fetch(`/chat/api/new-messages?device=${encodeURIComponent(activeDevice)}&jid=${encodeURIComponent(activeJid)}&after=${lastMsgId}`);
+        if (!resp.ok) return;
+        const newMsgs = await resp.json();
+        if (!newMsgs.length) return;
+
+        const msgArea = document.getElementById('msgArea');
+        if (!msgArea) return;
+
+        const wasAtBottom = msgArea.scrollTop + msgArea.clientHeight >= msgArea.scrollHeight - 50;
+
+        newMsgs.forEach(msg => {
+          if (msg.id <= lastMsgId) return;
+          lastMsgId = msg.id;
+
+          const wrap = document.createElement('div');
+          wrap.className = `wa-bubble-wrap ${msg.fromMe ? 'out' : 'in'}`;
+          
+          const mt = msg.messageType || 'text';
+          let contentHtml = '';
+          if (mt === 'image') {
+            contentHtml = `<div class="wa-media-placeholder">📷 <span>Photo</span></div>`;
+            if (msg.content) contentHtml += `<div class="wa-media-caption">${escapeHtml(msg.content)}</div>`;
+          } else if (mt === 'video') {
+            contentHtml = `<div class="wa-media-placeholder">🎥 <span>Video</span></div>`;
+            if (msg.content) contentHtml += `<div class="wa-media-caption">${escapeHtml(msg.content)}</div>`;
+          } else if (mt === 'audio' || mt === 'ptt') {
+            contentHtml = `<div class="wa-media-placeholder">🎵 <span>Audio</span></div>`;
+          } else if (mt === 'document') {
+            contentHtml = `<div class="wa-media-placeholder">📄 <span>${escapeHtml(msg.content) || 'Document'}</span></div>`;
+          } else if (mt === 'sticker') {
+            contentHtml = `<div class="wa-media-placeholder">🏷️ <span>Sticker</span></div>`;
+          } else {
+            contentHtml = escapeHtml(msg.content) || `[${mt}]`;
+          }
+
+          wrap.innerHTML = `
+            <div class="wa-bubble ${msg.fromMe ? 'out' : 'in'}">
+              ${!msg.fromMe && msg.pushName ? `<div class="wa-bubble-sender" style="color:${getAvatarColor(msg.pushName)}">${escapeHtml(msg.pushName)}</div>` : ''}
+              <div class="wa-bubble-content">${contentHtml}</div>
+              <span class="wa-bubble-time">
+                ${formatMsgTime(msg.createdAt)}
+                ${msg.fromMe ? statusIcon(msg.status) : ''}
+              </span>
+            </div>
+          `;
+          msgArea.appendChild(wrap);
+        });
+
+        // Auto-scroll if user was at the bottom
+        if (wasAtBottom) msgArea.scrollTop = msgArea.scrollHeight;
+      } catch(e) {}
+    }
+  }, 3000);
 })();
 </script>
