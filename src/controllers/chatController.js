@@ -26,9 +26,36 @@ const upload = multer({
 
 export const uploadMiddleware = upload.single('file');
 
-// Render chat page - merge DB devices with active sessions
+/**
+ * Get allowed session IDs for a user based on role
+ */
+async function getAllowedSessionIds(sessionUser) {
+  if (sessionUser.role === 'superadmin') return null; // no filter
+  let userIds = [sessionUser.id];
+  if (sessionUser.role === 'manager') {
+    const managedUsers = await prisma.user.findMany({
+      where: { managerId: sessionUser.id },
+      select: { id: true },
+    });
+    userIds.push(...managedUsers.map(u => u.id));
+  }
+  const devices = await prisma.device.findMany({
+    where: { createdBy: { in: userIds } },
+    select: { sessionId: true },
+  });
+  return devices.map(d => d.sessionId);
+}
+
+// Render chat page - merge DB devices with active sessions (scoped)
 export const index = async (req, res) => {
+  const allowedSessionIds = await getAllowedSessionIds(req.session.user);
+
+  const dbWhere = allowedSessionIds
+    ? { sessionId: { in: allowedSessionIds } }
+    : {};
+
   const dbDevices = await prisma.device.findMany({
+    where: dbWhere,
     select: { id: true, sessionId: true, name: true, phoneNumber: true, status: true },
   });
 
@@ -38,8 +65,11 @@ export const index = async (req, res) => {
   const devices = [...dbDevices];
 
   for (const [sessionId, session] of Object.entries(activeSessions)) {
+    // Only show unregistered sessions to superadmin
     if (!dbSessionIds.has(sessionId)) {
-      devices.push({ id: null, sessionId, name: sessionId, phoneNumber: null, status: session.status || 'disconnected' });
+      if (req.session.user.role === 'superadmin') {
+        devices.push({ id: null, sessionId, name: sessionId, phoneNumber: null, status: session.status || 'disconnected' });
+      }
     } else {
       // Update status from live session
       const dev = devices.find(d => d.sessionId === sessionId);
@@ -50,11 +80,30 @@ export const index = async (req, res) => {
   res.render('chat/index', { title: 'Chat', devices });
 };
 
-// API: Get chat list (grouped conversations) for all devices or a specific one
+// API: Get chat list (grouped conversations) - scoped
 export const getChats = async (req, res) => {
   const { device } = req.query;
 
   try {
+    const allowedSessionIds = await getAllowedSessionIds(req.session.user);
+
+    // Build session filter
+    let sessionFilter = '';
+    const params = [];
+
+    if (device) {
+      // Specific device requested — verify access
+      if (allowedSessionIds && !allowedSessionIds.includes(device)) {
+        return res.json([]);
+      }
+      sessionFilter = 'AND session_id = ?';
+      params.push(device);
+    } else if (allowedSessionIds) {
+      if (allowedSessionIds.length === 0) return res.json([]);
+      sessionFilter = `AND session_id IN (${allowedSessionIds.map(() => '?').join(',')})`;
+      params.push(...allowedSessionIds);
+    }
+
     const rawChats = await prisma.$queryRawUnsafe(`
       SELECT 
         m.session_id as sessionId,
@@ -74,13 +123,13 @@ export const getChats = async (req, res) => {
         FROM messages
         WHERE remote_jid IS NOT NULL
         AND remote_jid != ''
-        ${device ? 'AND session_id = ?' : ''}
+        ${sessionFilter}
         GROUP BY session_id, remote_jid
       ) latest ON m.session_id = latest.session_id AND m.remote_jid = latest.remote_jid AND m.created_at = latest.max_date
       LEFT JOIN devices d ON d.session_id = m.session_id
-      WHERE 1=1 ${device ? 'AND m.session_id = ?' : ''}
+      WHERE 1=1 ${sessionFilter}
       ORDER BY m.created_at DESC
-    `, ...(device ? [device, device] : []));
+    `, ...params, ...params);
 
     const chats = rawChats.map(c => ({
       sessionId: c.sessionId,
@@ -110,6 +159,12 @@ export const getMessages = async (req, res) => {
   const limit = 50;
 
   if (!device || !jid) return res.json({ messages: [], hasMore: false });
+
+  // Verify access
+  const allowedSessionIds = await getAllowedSessionIds(req.session.user);
+  if (allowedSessionIds && !allowedSessionIds.includes(device)) {
+    return res.json({ messages: [], hasMore: false });
+  }
 
   try {
     const where = { sessionId: device, remoteJid: jid };
@@ -147,6 +202,12 @@ export const sendMessage = async (req, res) => {
     return res.status(400).json({ error: 'device, jid, and text are required' });
   }
 
+  // Verify access
+  const allowedSessionIds = await getAllowedSessionIds(req.session.user);
+  if (allowedSessionIds && !allowedSessionIds.includes(device)) {
+    return res.status(403).json({ error: 'Access denied to this device' });
+  }
+
   const session = getSession(device);
   if (!session || session.status !== 'connected') {
     return res.status(400).json({ error: 'Device not connected' });
@@ -170,6 +231,12 @@ export const sendMedia = async (req, res) => {
   const { device, jid, caption } = req.body;
   if (!device || !jid || !req.file) {
     return res.status(400).json({ error: 'device, jid, and file are required' });
+  }
+
+  // Verify access
+  const allowedSessionIds = await getAllowedSessionIds(req.session.user);
+  if (allowedSessionIds && !allowedSessionIds.includes(device)) {
+    return res.status(403).json({ error: 'Access denied to this device' });
   }
 
   const session = getSession(device);
@@ -211,6 +278,12 @@ export const getNewMessages = async (req, res) => {
   const { device, jid, after } = req.query;
   if (!device || !jid || !after) return res.json([]);
 
+  // Verify access
+  const allowedSessionIds = await getAllowedSessionIds(req.session.user);
+  if (allowedSessionIds && !allowedSessionIds.includes(device)) {
+    return res.json([]);
+  }
+
   try {
     const rawMessages = await prisma.message.findMany({
       where: {
@@ -238,7 +311,18 @@ export const getNewMessages = async (req, res) => {
 // ─── Chat History (read-only, includes deleted sessions) ───
 
 export const historyIndex = async (req, res) => {
-  // Get all unique sessionIds from messages (including deleted devices)
+  const allowedSessionIds = await getAllowedSessionIds(req.session.user);
+
+  let sessionFilter = '';
+  const params = [];
+  if (allowedSessionIds) {
+    if (allowedSessionIds.length === 0) {
+      return res.render('chat-history/index', { title: 'Chat History', sessions: [] });
+    }
+    sessionFilter = `AND m.session_id IN (${allowedSessionIds.map(() => '?').join(',')})`;
+    params.push(...allowedSessionIds);
+  }
+
   const sessions = await prisma.$queryRawUnsafe(`
     SELECT DISTINCT m.session_id as sessionId, 
       COALESCE(d.name, m.session_id) as name,
@@ -246,15 +330,32 @@ export const historyIndex = async (req, res) => {
       CASE WHEN d.id IS NOT NULL THEN 'active' ELSE 'deleted' END as status
     FROM messages m
     LEFT JOIN devices d ON d.session_id = m.session_id
-    WHERE m.session_id IS NOT NULL
+    WHERE m.session_id IS NOT NULL ${sessionFilter}
     ORDER BY name
-  `);
+  `, ...params);
   res.render('chat-history/index', { title: 'Chat History', sessions });
 };
 
 export const historyChats = async (req, res) => {
   const { session } = req.query;
   try {
+    const allowedSessionIds = await getAllowedSessionIds(req.session.user);
+
+    let sessionFilter = '';
+    const params = [];
+
+    if (session) {
+      if (allowedSessionIds && !allowedSessionIds.includes(session)) {
+        return res.json([]);
+      }
+      sessionFilter = 'AND session_id = ?';
+      params.push(session);
+    } else if (allowedSessionIds) {
+      if (allowedSessionIds.length === 0) return res.json([]);
+      sessionFilter = `AND session_id IN (${allowedSessionIds.map(() => '?').join(',')})`;
+      params.push(...allowedSessionIds);
+    }
+
     const rawChats = await prisma.$queryRawUnsafe(`
       SELECT 
         m.session_id as sessionId,
@@ -273,13 +374,13 @@ export const historyChats = async (req, res) => {
         SELECT session_id, remote_jid, MAX(created_at) as max_date
         FROM messages
         WHERE remote_jid IS NOT NULL AND remote_jid != ''
-        ${session ? 'AND session_id = ?' : ''}
+        ${sessionFilter}
         GROUP BY session_id, remote_jid
       ) latest ON m.session_id = latest.session_id AND m.remote_jid = latest.remote_jid AND m.created_at = latest.max_date
       LEFT JOIN devices d ON d.session_id = m.session_id
-      WHERE 1=1 ${session ? 'AND m.session_id = ?' : ''}
+      WHERE 1=1 ${sessionFilter}
       ORDER BY m.created_at DESC
-    `, ...(session ? [session, session] : []));
+    `, ...params, ...params);
 
     const chats = rawChats.map(c => ({
       sessionId: c.sessionId,
@@ -306,6 +407,12 @@ export const historyMessages = async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = 50;
   if (!session || !jid) return res.json({ messages: [], hasMore: false });
+
+  // Verify access
+  const allowedSessionIds = await getAllowedSessionIds(req.session.user);
+  if (allowedSessionIds && !allowedSessionIds.includes(session)) {
+    return res.json({ messages: [], hasMore: false });
+  }
 
   try {
     const where = { sessionId: session, remoteJid: jid };

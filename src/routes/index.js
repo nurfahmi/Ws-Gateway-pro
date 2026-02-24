@@ -40,21 +40,21 @@ router.get('/', (req, res) => res.redirect('/dashboard'));
 // Dashboard
 router.get('/dashboard', requireAuth, dashCtrl.index);
 
-// Users (superadmin + admin)
-router.get('/users', requireAuth, requireRole('superadmin', 'admin'), userCtrl.index);
-router.get('/users/create', requireAuth, requireRole('superadmin', 'admin'), userCtrl.createPage);
-router.post('/users/create', requireAuth, requireRole('superadmin', 'admin'), userCtrl.createPost);
-router.get('/users/:id/edit', requireAuth, requireRole('superadmin', 'admin'), userCtrl.editPage);
-router.post('/users/:id/edit', requireAuth, requireRole('superadmin', 'admin'), userCtrl.editPost);
-router.post('/users/:id/delete', requireAuth, requireRole('superadmin', 'admin'), userCtrl.deleteUser);
+// Users (superadmin + manager)
+router.get('/users', requireAuth, requireRole('superadmin', 'manager'), userCtrl.index);
+router.get('/users/create', requireAuth, requireRole('superadmin', 'manager'), userCtrl.createPage);
+router.post('/users/create', requireAuth, requireRole('superadmin', 'manager'), userCtrl.createPost);
+router.get('/users/:id/edit', requireAuth, requireRole('superadmin', 'manager'), userCtrl.editPage);
+router.post('/users/:id/edit', requireAuth, requireRole('superadmin', 'manager'), userCtrl.editPost);
+router.post('/users/:id/delete', requireAuth, requireRole('superadmin', 'manager'), userCtrl.deleteUser);
 
 // Devices
 router.get('/devices', requireAuth, deviceCtrl.index);
-router.post('/devices/create', requireAuth, requireRole('superadmin', 'admin'), deviceCtrl.createPost);
-router.post('/devices/:id/delete', requireAuth, requireRole('superadmin', 'admin'), deviceCtrl.deleteDevice);
-router.post('/devices/:id/restart', requireAuth, requireRole('superadmin', 'admin'), deviceCtrl.restartDevice);
-router.post('/devices/:id/webhook', requireAuth, requireRole('superadmin', 'admin'), deviceCtrl.updateWebhookUrl);
-router.post('/devices/:id/regenerate-key', requireAuth, requireRole('superadmin', 'admin'), deviceCtrl.regenerateApiKey);
+router.post('/devices/create', requireAuth, requireRole('superadmin', 'manager'), deviceCtrl.createPost);
+router.post('/devices/:id/delete', requireAuth, requireRole('superadmin', 'manager'), deviceCtrl.deleteDevice);
+router.post('/devices/:id/restart', requireAuth, requireRole('superadmin', 'manager'), deviceCtrl.restartDevice);
+router.post('/devices/:id/webhook', requireAuth, requireRole('superadmin', 'manager'), deviceCtrl.updateWebhookUrl);
+router.post('/devices/:id/regenerate-key', requireAuth, requireRole('superadmin', 'manager'), deviceCtrl.regenerateApiKey);
 router.post('/devices/session/:sessionId/delete', requireAuth, requireRole('superadmin'), deviceCtrl.deleteBySessionId);
 router.get('/devices/:id/status', requireAuth, deviceCtrl.getStatus);
 
@@ -77,9 +77,9 @@ router.get('/chat-history/api/messages', requireAuth, chatCtrl.historyMessages);
 // Analytics
 router.get('/analytics', requireAuth, analyticsCtrl.index);
 
-// Monitor (superadmin + admin)
-router.get('/monitor', requireAuth, requireRole('superadmin', 'admin'), monitorCtrl.index);
-router.get('/monitor/stats', requireAuth, requireRole('superadmin', 'admin'), monitorCtrl.stats);
+// Monitor (superadmin + manager)
+router.get('/monitor', requireAuth, requireRole('superadmin', 'manager'), monitorCtrl.index);
+router.get('/monitor/stats', requireAuth, requireRole('superadmin', 'manager'), monitorCtrl.stats);
 
 // API Docs
 router.get('/docs', requireAuth, apiDocsCtrl.index);

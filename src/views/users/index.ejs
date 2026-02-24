@@ -12,6 +12,9 @@
         <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Name</th>
         <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Username</th>
         <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Role</th>
+        <% if (user.role === 'superadmin') { %>
+          <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Manager</th>
+        <% } %>
         <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Status</th>
         <th class="px-5 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Created</th>
         <th class="px-5 py-2.5 text-right text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase">Actions</th>
@@ -19,7 +22,7 @@
     </thead>
     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
       <% if (users.length === 0) { %>
-        <tr><td colspan="6" class="px-5 py-8 text-center text-gray-400">No users found</td></tr>
+        <tr><td colspan="7" class="px-5 py-8 text-center text-gray-400">No users found</td></tr>
       <% } %>
       <% users.forEach(u => { %>
         <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -28,11 +31,14 @@
           <td class="px-5 py-3">
             <span class="inline-flex px-2 py-0.5 rounded text-[11px] font-medium
               <%= u.role === 'superadmin' ? 'bg-red-100 dark:bg-red-500/10 text-red-700 dark:text-red-400'
-                : u.role === 'admin' ? 'bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                : u.role === 'manager' ? 'bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400'
                 : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400' %>">
               <%= u.role %>
             </span>
           </td>
+          <% if (user.role === 'superadmin') { %>
+            <td class="px-5 py-3 text-gray-600 dark:text-gray-300"><%= u.manager ? u.manager.name : '-' %></td>
+          <% } %>
           <td class="px-5 py-3">
             <span class="inline-flex items-center gap-1.5 text-xs font-medium <%= u.isActive ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400' %>">
               <span class="w-1.5 h-1.5 rounded-full <%= u.isActive ? 'bg-green-500' : 'bg-red-500' %>"></span>

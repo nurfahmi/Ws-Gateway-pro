@@ -2,15 +2,34 @@ import prisma from '../lib/prisma.js';
 import crypto from 'crypto';
 import { createSession, getSession, getAllSessions, deleteSession as deleteWASession, updateWebhook } from '../whatsapp.js';
 
+/**
+ * Get allowed user IDs for device access based on role:
+ * - superadmin: all devices (returns null = no filter)
+ * - manager: own devices + devices of assigned users
+ * - user: only own devices
+ */
+async function getAllowedUserIds(sessionUser) {
+  if (sessionUser.role === 'superadmin') return null; // no filter
+  if (sessionUser.role === 'manager') {
+    const managedUsers = await prisma.user.findMany({
+      where: { managerId: sessionUser.id },
+      select: { id: true },
+    });
+    return [sessionUser.id, ...managedUsers.map(u => u.id)];
+  }
+  return [sessionUser.id]; // user role
+}
+
 export const index = async (req, res) => {
   const user = req.session.user;
-  const isAdmin = user.role === 'superadmin' || user.role === 'admin';
+  const isSuperadmin = user.role === 'superadmin';
   const statusFilter = req.query.status || 'all';
   const page = parseInt(req.query.page) || 1;
   const limit = 15;
 
-  // Fetch DB devices based on role
-  const where = isAdmin ? {} : { createdBy: user.id };
+  const allowedIds = await getAllowedUserIds(user);
+  const where = allowedIds ? { createdBy: { in: allowedIds } } : {};
+
   const devices = await prisma.device.findMany({
     where,
     orderBy: { createdAt: 'desc' },
@@ -27,8 +46,8 @@ export const index = async (req, res) => {
     qr: sessions[d.sessionId]?.qr || null,
   }));
 
-  // For admin/superadmin: also show live sessions not yet in DB
-  if (isAdmin) {
+  // For superadmin: also show live sessions not yet in DB
+  if (isSuperadmin) {
     for (const [sessionId, sess] of Object.entries(sessions)) {
       if (!dbSessionIds.has(sessionId)) {
         allDevices.push({
@@ -97,8 +116,12 @@ export const deleteDevice = async (req, res) => {
   try {
     const device = await prisma.device.findUnique({ where: { id: parseInt(id) } });
     if (device) {
+      // Manager can only delete their own or their users' devices
+      const allowedIds = await getAllowedUserIds(req.session.user);
+      if (allowedIds && !allowedIds.includes(device.createdBy)) {
+        return res.status(403).render('403', { title: 'Forbidden' });
+      }
       await deleteWASession(device.sessionId);
-      // Delete related messages (FK constraint requires this before device delete)
       await prisma.message.deleteMany({ where: { sessionId: device.sessionId } });
       await prisma.device.delete({ where: { id: parseInt(id) } });
     }
@@ -114,6 +137,10 @@ export const restartDevice = async (req, res) => {
   try {
     const device = await prisma.device.findUnique({ where: { id: parseInt(id) } });
     if (device) {
+      const allowedIds = await getAllowedUserIds(req.session.user);
+      if (allowedIds && !allowedIds.includes(device.createdBy)) {
+        return res.status(403).render('403', { title: 'Forbidden' });
+      }
       await createSession(device.sessionId);
     }
     res.redirect('/devices');
@@ -129,6 +156,10 @@ export const updateWebhookUrl = async (req, res) => {
   try {
     const device = await prisma.device.findUnique({ where: { id: parseInt(id) } });
     if (device) {
+      const allowedIds = await getAllowedUserIds(req.session.user);
+      if (allowedIds && !allowedIds.includes(device.createdBy)) {
+        return res.status(403).render('403', { title: 'Forbidden' });
+      }
       await prisma.device.update({ where: { id: parseInt(id) }, data: { webhookUrl } });
       await updateWebhook(device.sessionId, webhookUrl);
     }
@@ -143,6 +174,13 @@ export const updateWebhookUrl = async (req, res) => {
 export const regenerateApiKey = async (req, res) => {
   const { id } = req.params;
   try {
+    const device = await prisma.device.findUnique({ where: { id: parseInt(id) } });
+    if (device) {
+      const allowedIds = await getAllowedUserIds(req.session.user);
+      if (allowedIds && !allowedIds.includes(device.createdBy)) {
+        return res.status(403).render('403', { title: 'Forbidden' });
+      }
+    }
     await prisma.device.update({
       where: { id: parseInt(id) },
       data: { apiKey: crypto.randomUUID() },
