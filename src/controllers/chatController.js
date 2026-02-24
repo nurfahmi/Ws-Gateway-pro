@@ -87,8 +87,9 @@ export const getChats = async (req, res) => {
   try {
     const allowedSessionIds = await getAllowedSessionIds(req.session.user);
 
-    // Build session filter
-    let sessionFilter = '';
+    // Build session filter (two versions: subquery has no alias, outer uses m.)
+    let subFilter = '';
+    let outerFilter = '';
     const params = [];
 
     if (device) {
@@ -96,11 +97,14 @@ export const getChats = async (req, res) => {
       if (allowedSessionIds && !allowedSessionIds.includes(device)) {
         return res.json([]);
       }
-      sessionFilter = 'AND session_id = ?';
+      subFilter = 'AND session_id = ?';
+      outerFilter = 'AND m.session_id = ?';
       params.push(device);
     } else if (allowedSessionIds) {
       if (allowedSessionIds.length === 0) return res.json([]);
-      sessionFilter = `AND session_id IN (${allowedSessionIds.map(() => '?').join(',')})`;
+      const placeholders = allowedSessionIds.map(() => '?').join(',');
+      subFilter = `AND session_id IN (${placeholders})`;
+      outerFilter = `AND m.session_id IN (${placeholders})`;
       params.push(...allowedSessionIds);
     }
 
@@ -123,11 +127,11 @@ export const getChats = async (req, res) => {
         FROM messages
         WHERE remote_jid IS NOT NULL
         AND remote_jid != ''
-        ${sessionFilter}
+        ${subFilter}
         GROUP BY session_id, remote_jid
       ) latest ON m.session_id = latest.session_id AND m.remote_jid = latest.remote_jid AND m.created_at = latest.max_date
       LEFT JOIN devices d ON d.session_id = m.session_id
-      WHERE 1=1 ${sessionFilter}
+      WHERE 1=1 ${outerFilter}
       ORDER BY m.created_at DESC
     `, ...params, ...params);
 
@@ -341,18 +345,22 @@ export const historyChats = async (req, res) => {
   try {
     const allowedSessionIds = await getAllowedSessionIds(req.session.user);
 
-    let sessionFilter = '';
+    let subFilter = '';
+    let outerFilter = '';
     const params = [];
 
     if (session) {
       if (allowedSessionIds && !allowedSessionIds.includes(session)) {
         return res.json([]);
       }
-      sessionFilter = 'AND session_id = ?';
+      subFilter = 'AND session_id = ?';
+      outerFilter = 'AND m.session_id = ?';
       params.push(session);
     } else if (allowedSessionIds) {
       if (allowedSessionIds.length === 0) return res.json([]);
-      sessionFilter = `AND session_id IN (${allowedSessionIds.map(() => '?').join(',')})`;
+      const placeholders = allowedSessionIds.map(() => '?').join(',');
+      subFilter = `AND session_id IN (${placeholders})`;
+      outerFilter = `AND m.session_id IN (${placeholders})`;
       params.push(...allowedSessionIds);
     }
 
@@ -374,11 +382,11 @@ export const historyChats = async (req, res) => {
         SELECT session_id, remote_jid, MAX(created_at) as max_date
         FROM messages
         WHERE remote_jid IS NOT NULL AND remote_jid != ''
-        ${sessionFilter}
+        ${subFilter}
         GROUP BY session_id, remote_jid
       ) latest ON m.session_id = latest.session_id AND m.remote_jid = latest.remote_jid AND m.created_at = latest.max_date
       LEFT JOIN devices d ON d.session_id = m.session_id
-      WHERE 1=1 ${sessionFilter}
+      WHERE 1=1 ${outerFilter}
       ORDER BY m.created_at DESC
     `, ...params, ...params);
 
