@@ -71,11 +71,12 @@ const createSession = async (sessionId, io) => {
     const { state, saveCreds } = await useMySQLAuthState(pool, sessionId);
 
     const sock = makeWASocket({
-        logger: pino({ level: 'warn' }), // Show warnings so we can see real disconnect reasons
+        logger: pino({ level: 'warn' }),
         printQRInTerminal: false,
+        version: [2, 3000, 1033893291],
         auth: state,
-        defaultQueryTimeoutMs: 60_000, // 60s timeout instead of infinite
-        keepAliveIntervalMs: 30_000, // Send heartbeat every 30s to keep connection alive
+        defaultQueryTimeoutMs: 60_000,
+        keepAliveIntervalMs: 30_000,
         browser: ["Chrome (Linux)", "", ""]
     });
 
