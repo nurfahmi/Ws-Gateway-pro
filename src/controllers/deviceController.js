@@ -98,6 +98,8 @@ export const deleteDevice = async (req, res) => {
     const device = await prisma.device.findUnique({ where: { id: parseInt(id) } });
     if (device) {
       await deleteWASession(device.sessionId);
+      // Delete related messages first to avoid foreign key constraint
+      await prisma.message.deleteMany({ where: { sessionId: device.sessionId } });
       await prisma.device.delete({ where: { id: parseInt(id) } });
     }
     res.redirect('/devices');
