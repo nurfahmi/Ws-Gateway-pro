@@ -262,4 +262,26 @@ const startServer = async () => {
   });
 };
 
+// Graceful shutdown — close all Baileys sockets before exit to prevent conflicts
+const gracefulShutdown = async (signal) => {
+  console.log(`\n${signal} received. Closing all sessions...`);
+  const sessions = getAllSessions();
+  for (const sessionId of Object.keys(sessions)) {
+    const session = getSession(sessionId);
+    if (session?.sock) {
+      try { session.sock.end(undefined); } catch(e) {}
+    }
+  }
+  console.log('All sessions closed. Exiting.');
+  process.exit(0);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+// nodemon sends SIGUSR2 before restart
+process.once('SIGUSR2', async () => {
+  await gracefulShutdown('SIGUSR2 (nodemon)');
+  process.kill(process.pid, 'SIGUSR2');
+});
+
 startServer();

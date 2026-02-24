@@ -1,0 +1,200 @@
+<link rel="stylesheet" href="/css/chat.css">
+<div class="wa-container">
+  <div class="wa-sidebar">
+    <div class="wa-sidebar-header">
+      <select class="wa-device-select" id="sessionFilter">
+        <option value="">All Sessions</option>
+        <% sessions.forEach(s => { %>
+          <option value="<%= s.sessionId %>"><%= s.name %><%= s.status === 'deleted' ? ' (deleted)' : '' %></option>
+        <% }); %>
+      </select>
+    </div>
+    <div class="wa-search-bar">
+      <div class="wa-search-wrap">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="search" class="wa-search-input" id="chatSearch" placeholder="Search conversations...">
+      </div>
+    </div>
+    <div class="wa-chat-list" id="chatList"></div>
+  </div>
+  <div class="wa-main" id="waMain">
+    <div class="wa-empty-state">
+      <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.8"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <h3>Chat History</h3>
+      <p>Browse archived conversations from all sessions</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const esc = s => s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : '';
+  const sessionFilter = $('sessionFilter'), chatSearch = $('chatSearch'), chatList = $('chatList'), waMain = $('waMain');
+  let allChats = [], activeSession = null, activeJid = null;
+
+  function formatTime(ds) { const d=new Date(ds),n=new Date(),diff=n-d; if(diff<86400000&&d.getDate()===n.getDate()) return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); if(diff<172800000) return 'Yesterday'; if(diff<604800000) return d.toLocaleDateString([],{weekday:'short'}); return d.toLocaleDateString([],{day:'2-digit',month:'2-digit',year:'2-digit'}); }
+  function fmtTime(ds) { return new Date(ds).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+  function fmtDate(ds) { const d=new Date(ds),n=new Date(),diff=n-d; if(diff<86400000&&d.getDate()===n.getDate()) return 'Today'; if(diff<172800000) return 'Yesterday'; return d.toLocaleDateString([],{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }
+  function getAvatarColor(s) { let h=0; for(let i=0;i<(s||'').length;i++) h=s.charCodeAt(i)+((h<<5)-h); const colors=['#00a884','#7c3aed','#2563eb','#db2777','#ea580c','#0891b2','#4f46e5','#16a34a','#9333ea','#e11d48']; return colors[Math.abs(h)%colors.length]; }
+  function getInitials(n) { return (n||'?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase(); }
+  function groupIcon(size) { return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`; }
+
+  function statusIcon(s) {
+    if(!s) return '';
+    const isRead = s==='read'||s==='played'||s==='read_by_recipient';
+    const isDelivered = s==='delivered'||s==='delivery_ack';
+    const single = `<svg width="12" height="11" viewBox="0 0 12 11" class="wa-check"><path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L4.19 8.17 1.866 5.672a.483.483 0 0 0-.358-.165.49.49 0 0 0-.359.165l-.344.369a.571.571 0 0 0 0 .754l3.005 3.222a.472.472 0 0 0 .714 0l.189-.211 6.674-7.926a.553.553 0 0 0 .087-.452.473.473 0 0 0-.2-.3z"/></svg>`;
+    const double = `<svg width="16" height="11" viewBox="0 0 16 11" class="wa-check"><path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L4.19 8.17 1.866 5.672a.483.483 0 0 0-.358-.165.49.49 0 0 0-.359.165l-.344.369a.571.571 0 0 0 0 .754l3.005 3.222a.472.472 0 0 0 .714 0l.189-.211 6.674-7.926a.553.553 0 0 0 .087-.452.473.473 0 0 0-.2-.3z"/><path d="M13.571.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L6.69 8.17l-.925-.99-.38.456 1.62 1.74a.472.472 0 0 0 .714 0l.189-.212 6.674-7.926a.553.553 0 0 0 .087-.452.473.473 0 0 0-.2-.3z"/></svg>`;
+    if(isRead) return `<span class="wa-bubble-status read">${double}</span>`;
+    if(isDelivered) return `<span class="wa-bubble-status">${double}</span>`;
+    return `<span class="wa-bubble-status">${single}</span>`;
+  }
+
+  function parseImageContent(content) {
+    if(content && content.startsWith('thumb:')) {
+      const pipeIdx = content.indexOf('|');
+      if(pipeIdx > 0) return { thumb: content.substring(6, pipeIdx), caption: content.substring(pipeIdx+1) };
+      return { thumb: content.substring(6), caption: '' };
+    }
+    return { thumb: null, caption: content || '' };
+  }
+
+  function mediaHtml(mt, content) {
+    if(mt==='image') {
+      const { thumb, caption } = parseImageContent(content);
+      let h = thumb ? `<img class="wa-media-img" src="data:image/jpeg;base64,${thumb}" alt="Photo" loading="lazy">` : `<div class="wa-media-placeholder">📷 <span>Photo</span></div>`;
+      if(caption) h += `<div class="wa-media-caption">${esc(caption)}</div>`;
+      return h;
+    }
+    if(mt==='video') return `<div class="wa-media-placeholder">🎥 <span>Video</span></div>`;
+    if(mt==='audio'||mt==='ptt') return `<div class="wa-media-placeholder">${mt==='ptt'?'🎤':'🎵'} <span>${mt==='ptt'?'Voice message':'Audio'}</span></div>`;
+    if(mt==='document') return `<div class="wa-media-placeholder">📄 <span>${esc(content)||'Document'}</span></div>`;
+    return esc(content) || `[${mt}]`;
+  }
+
+  function makeBubble(msg) {
+    const wrap = document.createElement('div');
+    wrap.className = `wa-bubble-wrap ${msg.fromMe?'out':'in'}`;
+    wrap.innerHTML = `
+      <div class="wa-bubble ${msg.fromMe?'out':'in'}">
+        ${!msg.fromMe&&msg.pushName?`<div class="wa-bubble-sender" style="color:${getAvatarColor(msg.pushName)}">${esc(msg.pushName)}</div>`:''}
+        <div class="wa-bubble-content">${mediaHtml(msg.messageType||'text',msg.content)}</div>
+        <span class="wa-bubble-time">${fmtTime(msg.createdAt)} ${msg.fromMe?statusIcon(msg.status):''}</span>
+      </div>`;
+    return wrap;
+  }
+
+  async function loadChats() {
+    const s = sessionFilter.value;
+    chatList.innerHTML = '<div class="wa-loading"><div class="wa-spinner"></div> Loading...</div>';
+    try {
+      const url = s ? `/chat-history/api/chats?session=${encodeURIComponent(s)}` : '/chat-history/api/chats';
+      allChats = await (await fetch(url)).json();
+      renderChats(allChats);
+    } catch(e) { chatList.innerHTML = '<div class="wa-no-chats"><span>Failed to load</span></div>'; }
+  }
+
+  function renderChats(chats) {
+    if(!chats.length) { chatList.innerHTML = '<div class="wa-no-chats"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>No conversations found</span></div>'; return; }
+    chatList.innerHTML = chats.map(c => {
+      const active = activeJid===c.remoteJid&&activeSession===c.sessionId;
+      const dl = c.phoneNumber?`${esc(c.deviceName)} · ${esc(c.phoneNumber)}`:esc(c.deviceName);
+      const deleted = c.deviceStatus==='deleted' ? ' (deleted)' : '';
+      return `<div class="wa-chat-item ${active?'active':''}" data-jid="${c.remoteJid}" data-session="${c.sessionId}" onclick="window.__openHistory('${c.sessionId}','${c.remoteJid}')">
+        <div class="wa-avatar" style="background:${getAvatarColor(c.remoteJid)}">${c.isGroup?groupIcon(24):getInitials(c.name)}</div>
+        <div class="wa-chat-info">
+          <div class="wa-chat-name-row"><span class="wa-chat-name">${esc(c.name)}</span><span class="wa-device-label" style="background:${getAvatarColor(c.sessionId)}${deleted?';opacity:0.6':''}">${dl}${deleted}</span></div>
+          <div class="wa-chat-preview">${esc(c.lastMessage)}</div>
+        </div>
+        <div class="wa-chat-meta">
+          <span class="wa-chat-time">${formatTime(c.time)}</span>
+          <span style="font-size:11px;color:var(--wa-text-secondary)">${c.totalMessages} msgs</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  window.__openHistory = async function(session, jid) {
+    activeSession=session; activeJid=jid;
+    document.querySelectorAll('.wa-chat-item').forEach(el=>el.classList.toggle('active',el.dataset.jid===jid&&el.dataset.session===session));
+    const chat = allChats.find(c=>c.remoteJid===jid&&c.sessionId===session);
+    const name = chat?.name||jid.split('@')[0]||'?';
+    const color = getAvatarColor(jid);
+    const isGroup = jid.includes('@g.us');
+    const dl = chat?.phoneNumber?`${chat.deviceName} · ${chat.phoneNumber}`:chat?.deviceName||session;
+
+    waMain.innerHTML = `
+      <div class="wa-main-header" style="cursor:default">
+        <div class="wa-avatar" style="background:${color};width:40px;height:40px;font-size:15px">${isGroup?groupIcon(20):getInitials(name)}</div>
+        <div class="wa-chat-info">
+          <div class="wa-chat-name-row"><span class="wa-chat-name">${esc(name)}</span><span class="wa-device-label" style="background:${getAvatarColor(session)}">${esc(dl)}</span></div>
+          <div class="wa-chat-preview">Chat History · Read-only</div>
+        </div>
+      </div>
+      <div class="wa-messages-area" id="msgArea"><div class="wa-loading"><div class="wa-spinner"></div> Loading...</div></div>
+      <div class="wa-not-connected">📁 Chat History — Read-only archive</div>
+    `;
+
+    try {
+      let page=1, allMsgs=[], hasMore=true;
+      // Load first page
+      const data = await (await fetch(`/chat-history/api/messages?session=${encodeURIComponent(session)}&jid=${encodeURIComponent(jid)}&page=${page}`)).json();
+      allMsgs = data.messages;
+      hasMore = data.hasMore;
+
+      const msgArea = $('msgArea');
+      msgArea.innerHTML = '';
+
+      if(hasMore) {
+        const loadMore = document.createElement('div');
+        loadMore.className = 'wa-load-more';
+        loadMore.innerHTML = `<button onclick="window.__loadMoreHistory(${page+1})">Load older messages (${data.total} total)</button>`;
+        msgArea.appendChild(loadMore);
+      }
+
+      let lastDate = '';
+      allMsgs.forEach(msg => {
+        const d = fmtDate(msg.createdAt);
+        if(d!==lastDate) { lastDate=d; const div=document.createElement('div'); div.className='wa-date-divider'; div.innerHTML=`<span>${d}</span>`; msgArea.appendChild(div); }
+        msgArea.appendChild(makeBubble(msg));
+      });
+      msgArea.scrollTop = msgArea.scrollHeight;
+    } catch(e) { $('msgArea').innerHTML = '<div class="wa-no-chats"><span>Failed to load messages</span></div>'; }
+  };
+
+  window.__loadMoreHistory = async function(page) {
+    if(!activeSession||!activeJid) return;
+    try {
+      const data = await (await fetch(`/chat-history/api/messages?session=${encodeURIComponent(activeSession)}&jid=${encodeURIComponent(activeJid)}&page=${page}`)).json();
+      const msgArea = $('msgArea');
+      const loadMoreDiv = msgArea.querySelector('.wa-load-more');
+      if(loadMoreDiv) loadMoreDiv.remove();
+
+      const frag = document.createDocumentFragment();
+      if(data.hasMore) {
+        const lm = document.createElement('div'); lm.className='wa-load-more';
+        lm.innerHTML=`<button onclick="window.__loadMoreHistory(${page+1})">Load older messages</button>`;
+        frag.appendChild(lm);
+      }
+      let lastDate = '';
+      data.messages.forEach(msg => {
+        const d = fmtDate(msg.createdAt);
+        if(d!==lastDate) { lastDate=d; const div=document.createElement('div'); div.className='wa-date-divider'; div.innerHTML=`<span>${d}</span>`; frag.appendChild(div); }
+        frag.appendChild(makeBubble(msg));
+      });
+      msgArea.prepend(frag);
+    } catch(e) {}
+  };
+
+  sessionFilter.addEventListener('change', () => { activeSession=null; activeJid=null; waMain.innerHTML='<div class="wa-empty-state"><svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.8"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><h3>Chat History</h3><p>Browse archived conversations from all sessions</p></div>'; loadChats(); });
+  chatSearch.addEventListener('input', () => {
+    const q = chatSearch.value.trim().toLowerCase();
+    if(!q) { renderChats(allChats); return; }
+    renderChats(allChats.filter(c=>c.name.toLowerCase().includes(q)||c.remoteJid.toLowerCase().includes(q)||(c.lastMessage||'').toLowerCase().includes(q)||(c.deviceName||'').toLowerCase().includes(q)));
+  });
+  chatSearch.addEventListener('search', () => { if(!chatSearch.value) renderChats(allChats); });
+
+  loadChats();
+})();
+</script>

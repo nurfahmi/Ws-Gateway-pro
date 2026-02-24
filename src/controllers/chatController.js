@@ -234,3 +234,91 @@ export const getNewMessages = async (req, res) => {
     res.json([]);
   }
 };
+
+// ─── Chat History (read-only, includes deleted sessions) ───
+
+export const historyIndex = async (req, res) => {
+  // Get all unique sessionIds from messages (including deleted devices)
+  const sessions = await prisma.$queryRawUnsafe(`
+    SELECT DISTINCT m.session_id as sessionId, 
+      COALESCE(d.name, m.session_id) as name,
+      d.phone_number as phoneNumber,
+      CASE WHEN d.id IS NOT NULL THEN 'active' ELSE 'deleted' END as status
+    FROM messages m
+    LEFT JOIN devices d ON d.session_id = m.session_id
+    WHERE m.session_id IS NOT NULL
+    ORDER BY name
+  `);
+  res.render('chat-history/index', { title: 'Chat History', sessions });
+};
+
+export const historyChats = async (req, res) => {
+  const { session } = req.query;
+  try {
+    const rawChats = await prisma.$queryRawUnsafe(`
+      SELECT 
+        m.session_id as sessionId,
+        m.remote_jid as remoteJid,
+        m.push_name as pushName,
+        m.content as lastMessage,
+        m.message_type as messageType,
+        m.from_me as fromMe,
+        m.created_at as createdAt,
+        COALESCE(d.name, m.session_id) as deviceName,
+        d.phone_number as phoneNumber,
+        CASE WHEN d.id IS NOT NULL THEN 'active' ELSE 'deleted' END as deviceStatus,
+        (SELECT COUNT(*) FROM messages m2 WHERE m2.session_id = m.session_id AND m2.remote_jid = m.remote_jid) as totalMessages
+      FROM messages m
+      INNER JOIN (
+        SELECT session_id, remote_jid, MAX(created_at) as max_date
+        FROM messages
+        WHERE remote_jid IS NOT NULL AND remote_jid != ''
+        ${session ? 'AND session_id = ?' : ''}
+        GROUP BY session_id, remote_jid
+      ) latest ON m.session_id = latest.session_id AND m.remote_jid = latest.remote_jid AND m.created_at = latest.max_date
+      LEFT JOIN devices d ON d.session_id = m.session_id
+      WHERE 1=1 ${session ? 'AND m.session_id = ?' : ''}
+      ORDER BY m.created_at DESC
+    `, ...(session ? [session, session] : []));
+
+    const chats = rawChats.map(c => ({
+      sessionId: c.sessionId,
+      remoteJid: c.remoteJid,
+      name: c.pushName || c.remoteJid?.split('@')[0] || 'Unknown',
+      deviceName: c.deviceName || c.sessionId,
+      phoneNumber: c.phoneNumber || null,
+      deviceStatus: c.deviceStatus,
+      lastMessage: c.fromMe ? `You: ${c.lastMessage || `[${c.messageType}]`}` : (c.lastMessage || `[${c.messageType}]`),
+      messageType: c.messageType,
+      time: c.createdAt,
+      totalMessages: Number(c.totalMessages),
+      isGroup: c.remoteJid?.includes('@g.us') || false,
+    }));
+    res.json(chats);
+  } catch (error) {
+    console.error('historyChats error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const historyMessages = async (req, res) => {
+  const { session, jid } = req.query;
+  const page = parseInt(req.query.page) || 1;
+  const limit = 50;
+  if (!session || !jid) return res.json({ messages: [], hasMore: false });
+
+  try {
+    const where = { sessionId: session, remoteJid: jid };
+    const [rawMessages, total] = await Promise.all([
+      prisma.message.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit }),
+      prisma.message.count({ where }),
+    ]);
+    const messages = rawMessages.reverse().map(m => ({
+      ...m, id: Number(m.id), timestamp: m.timestamp ? m.timestamp.toString() : null,
+    }));
+    res.json({ messages, hasMore: page * limit < total, total });
+  } catch (error) {
+    console.error('historyMessages error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};

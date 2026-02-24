@@ -69,6 +69,11 @@ router.post('/chat/api/send', requireAuth, chatCtrl.sendMessage);
 router.post('/chat/api/send-media', requireAuth, chatCtrl.uploadMiddleware, chatCtrl.sendMedia);
 router.get('/chat/api/new-messages', requireAuth, chatCtrl.getNewMessages);
 
+// Chat History (read-only archive)
+router.get('/chat-history', requireAuth, chatCtrl.historyIndex);
+router.get('/chat-history/api/chats', requireAuth, chatCtrl.historyChats);
+router.get('/chat-history/api/messages', requireAuth, chatCtrl.historyMessages);
+
 // Analytics
 router.get('/analytics', requireAuth, analyticsCtrl.index);
 

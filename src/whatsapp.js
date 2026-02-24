@@ -68,16 +68,53 @@ const createSession = async (sessionId, io) => {
         return sessions.get(sessionId);
     }
 
+    // If session exists but not connected, close old socket first to prevent conflicts
+    if (sessions.has(sessionId)) {
+        const old = sessions.get(sessionId);
+        if (old.sock) {
+            try { old.sock.end(undefined); } catch(e) {}
+        }
+        sessions.delete(sessionId);
+    }
+
     const { state, saveCreds } = await useMySQLAuthState(pool, sessionId);
+
+    // Generate unique browser identity per session [platform, browser, version]
+    const browsers = [
+      ["Ubuntu", "Chrome", "131.0.6778.204"],
+      ["Windows", "Edge", "131.0.2903.86"],
+      ["macOS", "Safari", "18.2"],
+      ["Windows", "Chrome", "131.0.6778.205"],
+      ["Ubuntu", "Firefox", "133.0.3"],
+      ["macOS", "Chrome", "131.0.6778.205"],
+      ["Windows", "Firefox", "133.0.3"],
+      ["Linux", "Chrome", "131.0.6778.204"],
+    ];
+    let hash = 0;
+    for (let i = 0; i < sessionId.length; i++) hash = sessionId.charCodeAt(i) + ((hash << 5) - hash);
+    const browser = browsers[Math.abs(hash) % browsers.length];
 
     const sock = makeWASocket({
         logger: pino({ level: 'warn' }),
         printQRInTerminal: false,
         version: [2, 3000, 1033893291],
         auth: state,
-        defaultQueryTimeoutMs: 60_000,
+        defaultQueryTimeoutMs: 120_000,
         keepAliveIntervalMs: 30_000,
-        browser: ["Chrome (Linux)", "", ""]
+        browser,
+        emitOwnEvents: true,
+        markOnlineOnConnect: false,
+        shouldSyncHistoryMessage: () => false,
+        getMessage: async (key) => {
+            // Required by Baileys for message retries and poll vote decryption
+            try {
+                const msg = await prisma.message.findFirst({
+                    where: { sessionId, messageId: key.id, remoteJid: key.remoteJid },
+                });
+                if (msg?.content) return { conversation: msg.content };
+            } catch(e) {}
+            return undefined;
+        },
     });
 
     // Update local session state
@@ -160,9 +197,20 @@ const createSession = async (sessionId, io) => {
             console.log(`[${sessionId}] Connected`);
             sessionData.status = 'connected';
             sessionData.qr = null;
-            retryCount.delete(sessionId); // Reset retry count on success
-            // Sync device status to DB
+            retryCount.delete(sessionId);
             try { await prisma.device.updateMany({ where: { sessionId }, data: { status: 'connected' } }); } catch(e) {}
+
+            // Auto-recovery: watchdog to detect stuck sync
+            sessionData._gotMessage = false;
+            if (sessionData._syncWatchdog) clearTimeout(sessionData._syncWatchdog);
+            sessionData._syncWatchdog = setTimeout(async () => {
+                if (!sessionData._gotMessage && sessionData.status === 'connected') {
+                    console.log(`[${sessionId}] No messages received after 30s — reconnecting to recover...`);
+                    try { sock.end(undefined); } catch(e) {}
+                    await delay(3000);
+                    createSession(sessionId);
+                }
+            }, 30_000);
         }
 
         // Also sync disconnected status
@@ -208,6 +256,10 @@ const createSession = async (sessionId, io) => {
     });
 
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
+        console.log(`[${sessionId}] messages.upsert: type=${type}, count=${messages.length}`);
+        // Mark sync as healthy for auto-recovery watchdog
+        const sd = sessions.get(sessionId);
+        if (sd) { sd._gotMessage = true; if (sd._syncWatchdog) { clearTimeout(sd._syncWatchdog); sd._syncWatchdog = null; } }
         if (type === 'notify' || type === 'append') {
             for (const msg of messages) {
                 if (!msg.message) continue;
@@ -228,30 +280,46 @@ const createSession = async (sessionId, io) => {
                 let messageType = 'text';
                 const m = msg.message;
 
-                // Skip internal system messages
-                if (m.protocolMessage || m.senderKeyDistributionMessage || m.messageContextInfo) continue;
+                // Skip internal system messages (only if they have NO real content)
+                const mKeys = Object.keys(m);
+                const systemOnly = mKeys.every(k => ['protocolMessage','senderKeyDistributionMessage','messageContextInfo','messageTimestamp'].includes(k));
+                if (systemOnly) continue;
 
                 if (m.conversation) { content = m.conversation; }
                 else if (m.extendedTextMessage) { content = m.extendedTextMessage.text || ''; }
-                else if (m.imageMessage) { messageType = 'image'; content = m.imageMessage.caption || ''; }
+                else if (m.imageMessage) {
+                    messageType = 'image';
+                    const caption = m.imageMessage.caption || '';
+                    const thumb = m.imageMessage.jpegThumbnail ? Buffer.from(m.imageMessage.jpegThumbnail).toString('base64') : '';
+                    content = thumb ? `thumb:${thumb}|${caption}` : caption;
+                }
                 else if (m.videoMessage) { messageType = 'video'; content = m.videoMessage.caption || ''; }
                 else if (m.audioMessage) { messageType = 'audio'; }
                 else if (m.documentMessage) { messageType = 'document'; content = m.documentMessage.fileName || ''; }
                 else if (m.stickerMessage) { messageType = 'sticker'; }
                 else { messageType = Object.keys(m)[0] || 'unknown'; }
 
-                // Persist message to DB
+                // Persist message to DB (skip duplicates)
                 try {
+                    const msgId = msg.key?.id || null;
+                    // Check for duplicate
+                    if (msgId) {
+                        const exists = await prisma.message.findFirst({
+                            where: { sessionId, messageId: msgId }
+                        });
+                        if (exists) continue;
+                    }
+
                     const saved = await prisma.message.create({
                         data: {
                             sessionId,
-                            messageId: msg.key?.id || null,
+                            messageId: msgId,
                             remoteJid: senderJid || null,
                             fromMe: msg.key?.fromMe || false,
                             pushName: msg.pushName || null,
                             messageType,
                             content: content ? content.substring(0, 5000) : null,
-                            status: 'received',
+                            status: msg.key?.fromMe ? 'server_ack' : 'received',
                             timestamp: msg.messageTimestamp ? BigInt(msg.messageTimestamp) : null,
                         },
                     });
@@ -272,8 +340,13 @@ const createSession = async (sessionId, io) => {
                                 status: 'received',
                                 createdAt: saved.createdAt,
                             });
+                            console.log(`[${sessionId}] Socket.IO emitted new-message to ${senderJid}`);
+                        } else {
+                            console.log(`[${sessionId}] Socket.IO not initialized (io is null)`);
                         }
-                    } catch(e) {}
+                    } catch(e) {
+                        console.error(`[${sessionId}] Socket.IO emit error:`, e.message);
+                    }
                 } catch (dbErr) {
                     console.error(`[${sessionId}] DB save failed:`, dbErr.message);
                 }
@@ -340,6 +413,26 @@ const createSession = async (sessionId, io) => {
                         { statusCode, status: statusName, timestamp: Date.now() }
                     ]
                 });
+
+                // Persist status to DB
+                try {
+                    await prisma.message.updateMany({
+                        where: { sessionId, messageId },
+                        data: { status: statusName }
+                    });
+                } catch(e) {}
+
+                // Emit status update to frontend
+                try {
+                    const { getIO } = await import('./socket.js');
+                    const io = getIO();
+                    if (io) {
+                        io.emit('message-status', {
+                            sessionId, messageId, remoteJid,
+                            status: statusName
+                        });
+                    }
+                } catch(e) {}
             }
 
             // Send webhook if configured

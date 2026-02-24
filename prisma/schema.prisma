@@ -40,7 +40,7 @@ model Device {
 
 model Message {
   id          Int      @id @default(autoincrement())
-  sessionId   String   @map("session_id") @db.VarChar(255)
+  sessionId   String?  @map("session_id") @db.VarChar(255)
   messageId   String?  @map("message_id") @db.VarChar(255)
   remoteJid   String?  @map("remote_jid") @db.VarChar(255)
   fromMe      Boolean  @default(false) @map("from_me")
@@ -49,7 +49,7 @@ model Message {
   content     String?  @db.Text
   status      String?  @db.VarChar(50)
   timestamp   BigInt?
-  device      Device?  @relation(fields: [sessionId], references: [sessionId])
+  device      Device?  @relation(fields: [sessionId], references: [sessionId], onDelete: SetNull)
   createdAt   DateTime @default(now()) @map("created_at")
 
   @@index([sessionId])
