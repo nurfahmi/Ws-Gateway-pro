@@ -6,6 +6,10 @@ import { useMySQLAuthState } from './mysql-auth.js';
 import prisma from './lib/prisma.js';
 
 const sessions = new Map(); // Store session data: { sock, qr, status }
+const retryCount = new Map(); // Track reconnection attempts per session
+const MAX_RETRIES = 10;
+const BASE_DELAY = 3000; // 3 seconds
+const MAX_DELAY = 5 * 60 * 1000; // 5 minutes
 
 // Message status store: Map<sessionId, Map<messageId, statusInfo>>
 const messageStore = new Map();
@@ -67,10 +71,11 @@ const createSession = async (sessionId, io) => {
     const { state, saveCreds } = await useMySQLAuthState(pool, sessionId);
 
     const sock = makeWASocket({
-        logger: pino({ level: 'silent' }), // Reduce logs or keep as info
+        logger: pino({ level: 'warn' }), // Show warnings so we can see real disconnect reasons
         printQRInTerminal: false,
         auth: state,
-        defaultQueryTimeoutMs: undefined,
+        defaultQueryTimeoutMs: 60_000, // 60s timeout instead of infinite
+        keepAliveIntervalMs: 30_000, // Send heartbeat every 30s to keep connection alive
         browser: ["Chrome (Linux)", "", ""]
     });
 
@@ -119,22 +124,34 @@ const createSession = async (sessionId, io) => {
             
             const shouldReconnect = !isLoggedOut && !isQrTimeout;
             
-            console.log(`[${sessionId}] Connection closed: ${lastDisconnect?.error}, Reconnecting: ${shouldReconnect}`);
+            console.log(`[${sessionId}] Connection closed: statusCode=${statusCode}, error=${lastDisconnect?.error?.message || lastDisconnect?.error}, Reconnecting: ${shouldReconnect}`);
             
             if (isQrTimeout) {
                 // QR timeout - wait for user to explicitly request new QR
                 sessionData.status = 'qr_timeout';
                 sessionData.qr = null;
+                retryCount.delete(sessionId);
                 console.log(`[${sessionId}] QR scan timeout. Use /session/restart or reconnect to generate new QR.`);
             } else if (isLoggedOut) {
                 // Logged out - clean up session
                 sessionData.status = 'logged_out';
+                retryCount.delete(sessionId);
                 deleteSession(sessionId);
             } else if (shouldReconnect) {
-                // Other connection issues - retry connection
-                sessionData.status = 'disconnected';
-                await delay(3000); // Wait a bit
-                createSession(sessionId);
+                const currentRetry = (retryCount.get(sessionId) || 0) + 1;
+                retryCount.set(sessionId, currentRetry);
+
+                if (currentRetry > MAX_RETRIES) {
+                    console.log(`[${sessionId}] Max retries (${MAX_RETRIES}) reached. Giving up.`);
+                    sessionData.status = 'failed';
+                    retryCount.delete(sessionId);
+                } else {
+                    const delayMs = Math.min(BASE_DELAY * Math.pow(2, currentRetry - 1), MAX_DELAY);
+                    console.log(`[${sessionId}] Retry ${currentRetry}/${MAX_RETRIES} in ${Math.round(delayMs / 1000)}s...`);
+                    sessionData.status = 'reconnecting';
+                    await delay(delayMs);
+                    createSession(sessionId);
+                }
             } else {
                 sessionData.status = 'disconnected';
             }
@@ -142,6 +159,7 @@ const createSession = async (sessionId, io) => {
             console.log(`[${sessionId}] Connected`);
             sessionData.status = 'connected';
             sessionData.qr = null;
+            retryCount.delete(sessionId); // Reset retry count on success
             // Sync device status to DB
             try { await prisma.device.updateMany({ where: { sessionId }, data: { status: 'connected' } }); } catch(e) {}
         }
@@ -446,7 +464,8 @@ const restoreSessions = async () => {
         for (const row of rows) {
           if (row.sessionId) {
             console.log(`Restoring session: ${row.sessionId}`);
-            createSession(row.sessionId);
+            await createSession(row.sessionId);
+            await delay(2000); // Stagger connections to avoid rate limiting
           }
         }
     } catch (err) {
