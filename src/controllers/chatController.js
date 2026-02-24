@@ -1,4 +1,5 @@
 import prisma from '../lib/prisma.js';
+import { getSession } from '../whatsapp.js';
 
 // Render chat page
 export const index = async (req, res) => {
@@ -95,6 +96,31 @@ export const getMessages = async (req, res) => {
     });
   } catch (error) {
     console.error('getMessages error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// API: Send a message from chat UI
+export const sendMessage = async (req, res) => {
+  const { device, jid, text } = req.body;
+  if (!device || !jid || !text) {
+    return res.status(400).json({ error: 'device, jid, and text are required' });
+  }
+
+  const session = getSession(device);
+  if (!session || session.status !== 'connected') {
+    return res.status(400).json({ error: 'Device not connected' });
+  }
+
+  try {
+    const result = await session.sendMessage(jid, { text });
+    res.json({
+      success: true,
+      messageId: result?.key?.id,
+      timestamp: Date.now(),
+    });
+  } catch (error) {
+    console.error('sendMessage error:', error);
     res.status(500).json({ error: error.message });
   }
 };

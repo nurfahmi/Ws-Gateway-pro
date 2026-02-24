@@ -65,6 +65,7 @@ router.get('/messages', requireAuth, msgCtrl.index);
 router.get('/chat', requireAuth, chatCtrl.index);
 router.get('/chat/api/chats', requireAuth, chatCtrl.getChats);
 router.get('/chat/api/messages', requireAuth, chatCtrl.getMessages);
+router.post('/chat/api/send', requireAuth, chatCtrl.sendMessage);
 
 // Analytics
 router.get('/analytics', requireAuth, analyticsCtrl.index);

@@ -392,6 +392,69 @@
     justify-content: center; flex: 1; gap: 8px;
     color: var(--wa-text-secondary); font-size: 14px;
   }
+
+  /* ─── Message Input ─── */
+  .wa-input-area {
+    background: var(--wa-header-bg);
+    padding: 10px 16px;
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    border-top: 1px solid var(--wa-border);
+  }
+
+  .wa-input-wrap {
+    flex: 1;
+    display: flex;
+    align-items: flex-end;
+    background: var(--wa-sidebar-bg);
+    border-radius: 8px;
+    border: 1px solid var(--wa-border);
+    padding: 6px 12px;
+    transition: border-color 0.2s;
+  }
+  .wa-input-wrap:focus-within { border-color: var(--wa-green); }
+
+  .wa-msg-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--wa-text);
+    font-size: 14px;
+    line-height: 1.4;
+    max-height: 120px;
+    resize: none;
+    font-family: inherit;
+    padding: 4px 0;
+  }
+  .wa-msg-input::placeholder { color: var(--wa-text-secondary); }
+
+  .wa-send-btn {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    border: none;
+    background: var(--wa-green);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s, transform 0.15s;
+  }
+  .wa-send-btn:hover { background: var(--wa-green-dark); transform: scale(1.05); }
+  .wa-send-btn:active { transform: scale(0.95); }
+  .wa-send-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .wa-not-connected {
+    background: var(--wa-header-bg);
+    padding: 12px 16px;
+    text-align: center;
+    font-size: 13px;
+    color: #e11d48;
+    border-top: 1px solid var(--wa-border);
+  }
 </style>
 
 <div class="wa-container" id="waContainer">
@@ -562,6 +625,13 @@
   }
 
   // Load messages for a chat
+  // Check if device is connected
+  function isDeviceConnected(sessionId) {
+    const devices = <%- JSON.stringify(devices) %>;
+    const d = devices.find(d => d.sessionId === sessionId);
+    return d && d.status === 'connected';
+  }
+
   window.__openChat = async function(device, jid) {
     activeJid = jid;
     activeDevice = device;
@@ -576,6 +646,7 @@
     const isGroup = jid.includes('@g.us');
     const color = getAvatarColor(jid);
     const deviceLabel = chat ? (chat.phoneNumber ? `${chat.deviceName} · ${chat.phoneNumber}` : chat.deviceName) : device;
+    const connected = isDeviceConnected(device);
 
     waMain.innerHTML = `
       <div class="wa-main-header">
@@ -593,7 +664,35 @@
       <div class="wa-messages-area" id="msgArea">
         <div class="wa-loading"><div class="wa-spinner"></div> Loading messages...</div>
       </div>
+      ${connected ? `
+        <div class="wa-input-area">
+          <div class="wa-input-wrap">
+            <textarea class="wa-msg-input" id="msgInput" placeholder="Type a message" rows="1"></textarea>
+          </div>
+          <button class="wa-send-btn" id="sendBtn" onclick="window.__sendMessage()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+      ` : `
+        <div class="wa-not-connected">⚠ Device is not connected. Messages are read-only.</div>
+      `}
     `;
+
+    // Auto-resize textarea
+    const input = document.getElementById('msgInput');
+    if (input) {
+      input.addEventListener('input', () => {
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          window.__sendMessage();
+        }
+      });
+      input.focus();
+    }
 
     await loadMessages(device, jid, 1, true);
   };
@@ -662,6 +761,62 @@
     const btn = document.querySelector('.wa-load-more');
     if (btn) btn.remove();
     await loadMessages(activeDevice, activeJid, page, false);
+  };
+
+  // Send message
+  window.__sendMessage = async function() {
+    const input = document.getElementById('msgInput');
+    const btn = document.getElementById('sendBtn');
+    if (!input || !activeDevice || !activeJid) return;
+
+    const text = input.value.trim();
+    if (!text) return;
+
+    // Disable while sending
+    input.disabled = true;
+    btn.disabled = true;
+    input.value = '';
+    input.style.height = 'auto';
+
+    // Optimistic: show message immediately
+    const msgArea = document.getElementById('msgArea');
+    const wrap = document.createElement('div');
+    wrap.className = 'wa-bubble-wrap out';
+    wrap.innerHTML = `
+      <div class="wa-bubble out">
+        <div class="wa-bubble-content">${escapeHtml(text)}</div>
+        <span class="wa-bubble-time">
+          ${formatMsgTime(new Date().toISOString())}
+          <span class="wa-bubble-status sent">✓</span>
+        </span>
+      </div>
+    `;
+    msgArea.appendChild(wrap);
+    msgArea.scrollTop = msgArea.scrollHeight;
+
+    try {
+      const resp = await fetch('/chat/api/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device: activeDevice, jid: activeJid, text }),
+      });
+      const data = await resp.json();
+      if (!data.success) {
+        wrap.querySelector('.wa-bubble').style.opacity = '0.5';
+        wrap.querySelector('.wa-bubble-status').textContent = '✗';
+        wrap.querySelector('.wa-bubble-status').style.color = '#e11d48';
+      } else {
+        wrap.querySelector('.wa-bubble-status').textContent = '✓✓';
+      }
+    } catch (e) {
+      wrap.querySelector('.wa-bubble').style.opacity = '0.5';
+      wrap.querySelector('.wa-bubble-status').textContent = '✗';
+      wrap.querySelector('.wa-bubble-status').style.color = '#e11d48';
+    }
+
+    input.disabled = false;
+    btn.disabled = false;
+    input.focus();
   };
 
   // Device filter change
