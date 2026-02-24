@@ -58,6 +58,7 @@ export const getChats = async (req, res) => {
       lastMessage: c.fromMe ? `You: ${c.lastMessage || `[${c.messageType}]`}` : (c.lastMessage || `[${c.messageType}]`),
       messageType: c.messageType,
       time: c.createdAt,
+      timestamp: c.timestamp ? c.timestamp.toString() : null,
       totalMessages: Number(c.totalMessages),
       isGroup: c.remoteJid?.includes('@g.us') || false,
     }));
@@ -79,7 +80,7 @@ export const getMessages = async (req, res) => {
 
   try {
     const where = { sessionId: device, remoteJid: jid };
-    const [messages, total] = await Promise.all([
+    const [rawMessages, total] = await Promise.all([
       prisma.message.findMany({
         where,
         orderBy: { createdAt: 'desc' },
@@ -89,8 +90,15 @@ export const getMessages = async (req, res) => {
       prisma.message.count({ where }),
     ]);
 
+    // Convert BigInt to string for JSON serialization
+    const messages = rawMessages.reverse().map(m => ({
+      ...m,
+      id: Number(m.id),
+      timestamp: m.timestamp ? m.timestamp.toString() : null,
+    }));
+
     res.json({
-      messages: messages.reverse(),
+      messages,
       hasMore: page * limit < total,
       total,
     });

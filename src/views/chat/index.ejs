@@ -393,6 +393,27 @@
     color: var(--wa-text-secondary); font-size: 14px;
   }
 
+  .wa-media-placeholder {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.05);
+    font-size: 13px;
+    color: var(--wa-text-secondary);
+    margin-bottom: 4px;
+  }
+  .dark .wa-media-placeholder { background: rgba(255,255,255,0.05); }
+  .wa-media-placeholder span { font-weight: 500; }
+
+  .wa-media-caption {
+    font-size: 14px;
+    color: var(--wa-text);
+    margin-top: 4px;
+    line-height: 1.35;
+  }
+
   /* ─── Message Input ─── */
   .wa-input-area {
     background: var(--wa-header-bg);
@@ -700,8 +721,18 @@
   async function loadMessages(device, jid, page, scroll) {
     try {
       const resp = await fetch(`/chat/api/messages?device=${encodeURIComponent(device)}&jid=${encodeURIComponent(jid)}&page=${page}`);
+      if (!resp.ok) {
+        const msgArea = document.getElementById('msgArea');
+        if (page === 1) msgArea.innerHTML = '<div class="wa-no-chats"><span>Failed to load messages</span></div>';
+        return;
+      }
       const data = await resp.json();
       const msgArea = document.getElementById('msgArea');
+
+      if (!data.messages || !data.messages.length) {
+        if (page === 1) msgArea.innerHTML = '<div class="wa-no-chats"><span>No messages yet</span></div>';
+        return;
+      }
 
       if (page === 1) msgArea.innerHTML = '';
 
@@ -710,11 +741,6 @@
         loadMoreDiv.className = 'wa-load-more';
         loadMoreDiv.innerHTML = `<button onclick="window.__loadMore(${page + 1})">↑ Load older messages</button>`;
         msgArea.prepend(loadMoreDiv);
-      }
-
-      if (!data.messages.length && page === 1) {
-        msgArea.innerHTML = '<div class="wa-no-chats"><span>No messages yet</span></div>';
-        return;
       }
 
       let lastDate = null;
@@ -734,13 +760,33 @@
         wrap.className = `wa-bubble-wrap ${msg.fromMe ? 'out' : 'in'}`;
         
         const typeHtml = typeIcon(msg.messageType);
-        const content = escapeHtml(msg.content) || `[${msg.messageType}]`;
+        const mt = msg.messageType || 'text';
+        let contentHtml = '';
+
+        if (mt === 'image') {
+          contentHtml = `<div class="wa-media-placeholder">📷 <span>Photo</span></div>`;
+          if (msg.content) contentHtml += `<div class="wa-media-caption">${escapeHtml(msg.content)}</div>`;
+        } else if (mt === 'video') {
+          contentHtml = `<div class="wa-media-placeholder">🎥 <span>Video</span></div>`;
+          if (msg.content) contentHtml += `<div class="wa-media-caption">${escapeHtml(msg.content)}</div>`;
+        } else if (mt === 'audio' || mt === 'ptt') {
+          contentHtml = `<div class="wa-media-placeholder">🎵 <span>Audio</span></div>`;
+        } else if (mt === 'document') {
+          contentHtml = `<div class="wa-media-placeholder">📄 <span>${escapeHtml(msg.content) || 'Document'}</span></div>`;
+        } else if (mt === 'sticker') {
+          contentHtml = `<div class="wa-media-placeholder">🏷️ <span>Sticker</span></div>`;
+        } else if (mt === 'location' || mt === 'liveLocationMessage') {
+          contentHtml = `<div class="wa-media-placeholder">📍 <span>Location</span></div>`;
+        } else if (mt === 'contactMessage' || mt === 'contactsArrayMessage') {
+          contentHtml = `<div class="wa-media-placeholder">👤 <span>Contact</span></div>`;
+        } else {
+          contentHtml = escapeHtml(msg.content) || `[${mt}]`;
+        }
 
         wrap.innerHTML = `
           <div class="wa-bubble ${msg.fromMe ? 'out' : 'in'}">
             ${!msg.fromMe && msg.pushName ? `<div class="wa-bubble-sender" style="color:${getAvatarColor(msg.pushName)}">${escapeHtml(msg.pushName)}</div>` : ''}
-            ${typeHtml}
-            <div class="wa-bubble-content">${content}</div>
+            <div class="wa-bubble-content">${contentHtml}</div>
             <span class="wa-bubble-time">
               ${formatMsgTime(msg.createdAt)}
               ${msg.fromMe ? statusIcon(msg.status) : ''}
@@ -754,6 +800,8 @@
       if (scroll) msgArea.scrollTop = msgArea.scrollHeight;
     } catch (e) {
       console.error('loadMessages error:', e);
+      const msgArea = document.getElementById('msgArea');
+      if (msgArea) msgArea.innerHTML = '<div class="wa-no-chats"><span>Failed to load messages</span></div>';
     }
   }
 
