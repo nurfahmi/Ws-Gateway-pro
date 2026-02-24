@@ -14,7 +14,7 @@
 <!-- Filters -->
 <div class="flex flex-wrap items-center gap-2 mb-5">
   <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">Status:</span>
-  <% ['all','connected','connecting','scan_qr','offline'].forEach(s => { %>
+  <% ['all','connected','connecting','reconnecting','scan_qr','failed','offline'].forEach(s => { %>
     <a href="/devices?status=<%= s %>"
       class="px-3 py-1.5 rounded-lg text-xs font-medium transition
         <%= statusFilter === s
@@ -71,11 +71,15 @@
               <%= d.liveStatus === 'connected' ? 'bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400' :
                  d.liveStatus === 'scan_qr' ? 'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400' :
                  d.liveStatus === 'connecting' ? 'bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400' :
+                 d.liveStatus === 'reconnecting' ? 'bg-orange-100 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400' :
+                 d.liveStatus === 'failed' ? 'bg-red-100 dark:bg-red-500/10 text-red-700 dark:text-red-400' :
                  'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400' %>">
               <span class="w-1.5 h-1.5 rounded-full
                 <%= d.liveStatus === 'connected' ? 'bg-green-500' :
                    d.liveStatus === 'scan_qr' ? 'bg-blue-500' :
-                   d.liveStatus === 'connecting' ? 'bg-amber-500' : 'bg-gray-400' %>"></span>
+                   d.liveStatus === 'connecting' ? 'bg-amber-500' :
+                   d.liveStatus === 'reconnecting' ? 'bg-orange-500 animate-pulse' :
+                   d.liveStatus === 'failed' ? 'bg-red-500' : 'bg-gray-400' %>"></span>
               <%= d.liveStatus %>
             </span>
           </td>
@@ -262,8 +266,8 @@
         if (!data.status) continue;
         const badge = row.querySelector('.status-badge');
         const qrCell = row.querySelector('.qr-cell');
-        const colors = { connected: 'bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400', scan_qr: 'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400', connecting: 'bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400' };
-        const dots = { connected: 'bg-green-500', scan_qr: 'bg-blue-500', connecting: 'bg-amber-500' };
+        const colors = { connected: 'bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400', scan_qr: 'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400', connecting: 'bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400', reconnecting: 'bg-orange-100 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400', failed: 'bg-red-100 dark:bg-red-500/10 text-red-700 dark:text-red-400' };
+        const dots = { connected: 'bg-green-500', scan_qr: 'bg-blue-500', connecting: 'bg-amber-500', reconnecting: 'bg-orange-500 animate-pulse', failed: 'bg-red-500' };
         badge.className = 'status-badge inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium ' + (colors[data.status] || 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400');
         badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full ' + (dots[data.status] || 'bg-gray-400') + '"></span>' + data.status;
         if (data.status === 'connected') {
