@@ -5,6 +5,7 @@ import * as dashCtrl from '../controllers/dashboardController.js';
 import * as userCtrl from '../controllers/userController.js';
 import * as deviceCtrl from '../controllers/deviceController.js';
 import * as msgCtrl from '../controllers/messageController.js';
+import * as chatCtrl from '../controllers/chatController.js';
 import * as analyticsCtrl from '../controllers/analyticsController.js';
 import * as monitorCtrl from '../controllers/monitorController.js';
 import * as apiDocsCtrl from '../controllers/apiDocsController.js';
@@ -59,6 +60,11 @@ router.get('/devices/:id/status', requireAuth, deviceCtrl.getStatus);
 
 // Messages
 router.get('/messages', requireAuth, msgCtrl.index);
+
+// Chat (WhatsApp-style)
+router.get('/chat', requireAuth, chatCtrl.index);
+router.get('/chat/api/chats', requireAuth, chatCtrl.getChats);
+router.get('/chat/api/messages', requireAuth, chatCtrl.getMessages);
 
 // Analytics
 router.get('/analytics', requireAuth, analyticsCtrl.index);
