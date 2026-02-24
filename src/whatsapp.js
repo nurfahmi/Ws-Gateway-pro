@@ -574,16 +574,15 @@ const deleteSession = async (sessionId) => {
     contactStore.delete(sessionId);
 };
 
-// Restore sessions from DB on startup
+// Restore sessions from DB on startup — only restore devices that exist in DB
 const restoreSessions = async () => {
     try {
-        const [rows] = await pool.query('SELECT DISTINCT SUBSTRING_INDEX(id, ":", 1) as sessionId FROM session_store');
-        for (const row of rows) {
-          if (row.sessionId) {
-            console.log(`Restoring session: ${row.sessionId}`);
-            await createSession(row.sessionId);
-            await delay(2000); // Stagger connections to avoid rate limiting
-          }
+        // Only restore sessions that have a matching device record
+        const devices = await prisma.device.findMany({ select: { sessionId: true } });
+        for (const device of devices) {
+          console.log(`Restoring session: ${device.sessionId}`);
+          await createSession(device.sessionId);
+          await delay(2000); // Stagger connections to avoid rate limiting
         }
     } catch (err) {
         console.error("Error restoring sessions:", err);
