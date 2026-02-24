@@ -208,7 +208,7 @@ const createSession = async (sessionId, io) => {
     });
 
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
-        if (type === 'notify') {
+        if (type === 'notify' || type === 'append') {
             for (const msg of messages) {
                 if (!msg.message) continue;
 

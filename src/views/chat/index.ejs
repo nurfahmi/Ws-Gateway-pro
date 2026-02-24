@@ -342,7 +342,7 @@
       if (d.success) wrap.querySelector('.wa-bubble-status').textContent = '✓✓';
       else { wrap.querySelector('.wa-bubble').style.opacity='0.5'; wrap.querySelector('.wa-bubble-status').textContent='✗'; wrap.querySelector('.wa-bubble-status').style.color='#e11d48'; }
     } catch(e) { wrap.querySelector('.wa-bubble').style.opacity='0.5'; wrap.querySelector('.wa-bubble-status').textContent='✗'; }
-    input.disabled = false; sendBtn.disabled = false; input.focus();
+    input.disabled = false; sendBtn.disabled = false; input.focus(); loadChats();
   }
 
   // ─── Send Media ───
@@ -380,7 +380,7 @@
       if (d.success) wrap.querySelector('.wa-bubble-status').textContent = '✓✓';
       else { wrap.querySelector('.wa-bubble').style.opacity='0.5'; wrap.querySelector('.wa-bubble-status').textContent='✗'; wrap.querySelector('.wa-bubble-status').style.color='#e11d48'; }
     } catch(e) { wrap.querySelector('.wa-bubble').style.opacity='0.5'; wrap.querySelector('.wa-bubble-status').textContent='✗'; }
-    input.disabled = false; sendBtn.disabled = false; input.focus();
+    input.disabled = false; sendBtn.disabled = false; input.focus(); loadChats();
   }
 
   // ─── File Attach ───
@@ -452,5 +452,8 @@
 
   // ─── Init ───
   loadChats();
+
+  // Fallback: refresh chat list every 10s in case socket disconnects
+  setInterval(() => { if (!document.hidden) loadChats(); }, 10000);
 })();
 </script>
