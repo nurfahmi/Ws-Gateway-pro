@@ -80,14 +80,6 @@
   }
   .wa-device-select:focus { border-color: var(--wa-green); }
 
-  .wa-device-status {
-    width: 10px; height: 10px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .wa-device-status.connected { background: #25d366; box-shadow: 0 0 6px rgba(37,211,102,0.4); }
-  .wa-device-status.disconnected { background: #667781; }
-
   .wa-search-bar {
     padding: 8px 12px;
     background: var(--wa-sidebar-bg);
@@ -152,11 +144,34 @@
     min-width: 0;
   }
 
+  .wa-chat-name-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
   .wa-chat-name {
     font-size: 16px;
     font-weight: 400;
     color: var(--wa-text);
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .wa-device-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    background: var(--wa-green);
+    color: #fff;
+    white-space: nowrap;
+    flex-shrink: 0;
+    max-width: 120px;
     overflow: hidden;
     text-overflow: ellipsis;
   }
@@ -383,11 +398,11 @@
   <!-- Sidebar -->
   <div class="wa-sidebar">
     <div class="wa-sidebar-header">
-      <div class="wa-device-status disconnected" id="deviceStatus"></div>
-      <select class="wa-device-select" id="deviceSelect">
-        <option value="">— Select Device —</option>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--wa-green)" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <select class="wa-device-select" id="deviceFilter">
+        <option value="">All Devices</option>
         <% devices.forEach(d => { %>
-          <option value="<%= d.sessionId %>" data-status="<%= d.status %>"><%= d.name || d.sessionId %></option>
+          <option value="<%= d.sessionId %>"><%= d.name || d.sessionId %><%= d.phoneNumber ? ` (${d.phoneNumber})` : '' %></option>
         <% }) %>
       </select>
     </div>
@@ -400,10 +415,7 @@
     </div>
 
     <div class="wa-chat-list" id="chatList">
-      <div class="wa-no-chats" id="noChatState">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        <span>Select a device to view chats</span>
-      </div>
+      <div class="wa-loading"><div class="wa-spinner"></div> Loading chats...</div>
     </div>
   </div>
 
@@ -413,27 +425,36 @@
       <svg width="200" height="200" viewBox="0 0 303 172" fill="currentColor">
         <path d="M229.565 160.229c32.647-16.166 55.388-50.156 55.388-89.428 0-55.178-44.823-99.5-100.5-99.5-40.083 0-74.716 23.346-90.927 57.073C38.815 30.072 0 68.926 0 115.129c0 21.313 7.584 40.875 20.2 56.143l-15.168 23.467c-.563.870-.133 2.033.875 2.37l27.091 9.061c9.477 3.164 19.725-.104 25.907-7.477C72.083 208.074 88.406 213 105.931 213c31.47 0 58.381-19.152 69.888-46.423 12.576 6.736 27.026 10.551 42.284 10.551 13.458 0 26.21-3.082 37.591-8.583l22.193 15.674c.874.617 2.08.076 2.252-.998l3.621-22.594c.104-.648-.261-1.282-.867-1.518-9.17-3.576-17.363-8.802-24.253-15.37-8.654 5.027-18.452 8.496-28.91 10.091l-.165.399z"/>
       </svg>
-      <h3>WhatsApp Chat Viewer</h3>
-      <p>Select a device and a conversation to view messages</p>
+      <h3>WhatsApp Chat History</h3>
+      <p>Select a conversation to view messages</p>
     </div>
   </div>
 </div>
 
 <script>
 (function() {
-  const deviceSelect = document.getElementById('deviceSelect');
-  const deviceStatus = document.getElementById('deviceStatus');
+  const deviceFilter = document.getElementById('deviceFilter');
   const chatList = document.getElementById('chatList');
   const chatSearch = document.getElementById('chatSearch');
   const waMain = document.getElementById('waMain');
   const emptyState = document.getElementById('emptyState');
-  const noChatState = document.getElementById('noChatState');
 
   let allChats = [];
   let activeJid = null;
-  let currentPage = 1;
+  let activeDevice = null;
 
-  // Avatar colors
+  // Device label colors
+  const deviceColors = ['#25d366','#6366f1','#e11d48','#f59e0b','#06b6d4','#7c3aed','#128c7e','#075e54','#34b7f1','#00a884'];
+  const deviceColorMap = {};
+  let colorIdx = 0;
+  function getDeviceColor(sessionId) {
+    if (!deviceColorMap[sessionId]) {
+      deviceColorMap[sessionId] = deviceColors[colorIdx % deviceColors.length];
+      colorIdx++;
+    }
+    return deviceColorMap[sessionId];
+  }
+
   const avatarColors = ['#25d366','#128c7e','#075e54','#34b7f1','#00a884','#7c3aed','#e11d48','#f59e0b','#06b6d4','#6366f1'];
   function getAvatarColor(str) {
     let h = 0;
@@ -451,7 +472,6 @@
     const now = new Date();
     const diff = now - d;
     const dayMs = 86400000;
-    
     if (diff < dayMs && d.getDate() === now.getDate()) {
       return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
@@ -487,20 +507,20 @@
     return `<span class="wa-type-badge">${icons[label] || '📎'} ${label}</span>`;
   }
 
+  function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str || '';
+    return d.innerHTML;
+  }
+
   // Load chats
   async function loadChats() {
-    const device = deviceSelect.value;
-    if (!device) {
-      chatList.innerHTML = '';
-      chatList.appendChild(noChatState);
-      noChatState.querySelector('span').textContent = 'Select a device to view chats';
-      return;
-    }
-
+    const device = deviceFilter.value;
     chatList.innerHTML = '<div class="wa-loading"><div class="wa-spinner"></div> Loading chats...</div>';
 
     try {
-      const resp = await fetch(`/chat/api/chats?device=${encodeURIComponent(device)}`);
+      const url = device ? `/chat/api/chats?device=${encodeURIComponent(device)}` : '/chat/api/chats';
+      const resp = await fetch(url);
       allChats = await resp.json();
       renderChats(allChats);
     } catch (e) {
@@ -510,45 +530,52 @@
 
   function renderChats(chats) {
     if (!chats.length) {
-      chatList.innerHTML = '';
-      const el = noChatState.cloneNode(true);
-      el.querySelector('span').textContent = 'No conversations found';
-      chatList.appendChild(el);
+      chatList.innerHTML = '<div class="wa-no-chats"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>No conversations found</span></div>';
       return;
     }
 
-    chatList.innerHTML = chats.map(chat => `
-      <div class="wa-chat-item ${activeJid === chat.remoteJid ? 'active' : ''}" data-jid="${chat.remoteJid}" onclick="window.__openChat('${chat.remoteJid}')">
-        <div class="wa-avatar" style="background:${getAvatarColor(chat.remoteJid)}">
-          ${chat.isGroup ? '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' : getInitials(chat.name)}
+    chatList.innerHTML = chats.map(chat => {
+      const isActive = activeJid === chat.remoteJid && activeDevice === chat.sessionId;
+      const deviceLabel = chat.phoneNumber
+        ? `${escapeHtml(chat.deviceName)} · ${escapeHtml(chat.phoneNumber)}`
+        : escapeHtml(chat.deviceName);
+
+      return `
+        <div class="wa-chat-item ${isActive ? 'active' : ''}" data-jid="${chat.remoteJid}" data-device="${chat.sessionId}" onclick="window.__openChat('${chat.sessionId}','${chat.remoteJid}')">
+          <div class="wa-avatar" style="background:${getAvatarColor(chat.remoteJid)}">
+            ${chat.isGroup ? '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' : getInitials(chat.name)}
+          </div>
+          <div class="wa-chat-info">
+            <div class="wa-chat-name-row">
+              <span class="wa-chat-name">${escapeHtml(chat.name)}</span>
+              <span class="wa-device-label" style="background:${getDeviceColor(chat.sessionId)}">${deviceLabel}</span>
+            </div>
+            <div class="wa-chat-preview">${escapeHtml(chat.lastMessage)}</div>
+          </div>
+          <div class="wa-chat-meta">
+            <span class="wa-chat-time">${formatTime(chat.time)}</span>
+            ${chat.totalMessages > 0 ? `<span class="wa-chat-badge">${chat.totalMessages}</span>` : ''}
+          </div>
         </div>
-        <div class="wa-chat-info">
-          <div class="wa-chat-name">${chat.name}</div>
-          <div class="wa-chat-preview">${chat.lastMessage || ''}</div>
-        </div>
-        <div class="wa-chat-meta">
-          <span class="wa-chat-time">${formatTime(chat.time)}</span>
-          ${chat.totalMessages > 0 ? `<span class="wa-chat-badge">${chat.totalMessages}</span>` : ''}
-        </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
   }
 
   // Load messages for a chat
-  window.__openChat = async function(jid) {
+  window.__openChat = async function(device, jid) {
     activeJid = jid;
-    currentPage = 1;
-    const device = deviceSelect.value;
-    const chat = allChats.find(c => c.remoteJid === jid);
+    activeDevice = device;
+    const chat = allChats.find(c => c.remoteJid === jid && c.sessionId === device);
 
     // Update active state in sidebar
     document.querySelectorAll('.wa-chat-item').forEach(el => {
-      el.classList.toggle('active', el.dataset.jid === jid);
+      el.classList.toggle('active', el.dataset.jid === jid && el.dataset.device === device);
     });
 
     const name = chat ? chat.name : jid.split('@')[0];
     const isGroup = jid.includes('@g.us');
     const color = getAvatarColor(jid);
+    const deviceLabel = chat ? (chat.phoneNumber ? `${chat.deviceName} · ${chat.phoneNumber}` : chat.deviceName) : device;
 
     waMain.innerHTML = `
       <div class="wa-main-header">
@@ -556,7 +583,10 @@
           ${isGroup ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' : getInitials(name)}
         </div>
         <div class="wa-chat-info">
-          <div class="wa-chat-name">${name}</div>
+          <div class="wa-chat-name-row">
+            <span class="wa-chat-name">${escapeHtml(name)}</span>
+            <span class="wa-device-label" style="background:${getDeviceColor(device)}">${escapeHtml(deviceLabel)}</span>
+          </div>
           <div class="wa-chat-preview">${isGroup ? 'Group' : jid.split('@')[0]}</div>
         </div>
       </div>
@@ -605,11 +635,11 @@
         wrap.className = `wa-bubble-wrap ${msg.fromMe ? 'out' : 'in'}`;
         
         const typeHtml = typeIcon(msg.messageType);
-        const content = msg.content || `[${msg.messageType}]`;
+        const content = escapeHtml(msg.content) || `[${msg.messageType}]`;
 
         wrap.innerHTML = `
           <div class="wa-bubble ${msg.fromMe ? 'out' : 'in'}">
-            ${!msg.fromMe && msg.pushName ? `<div class="wa-bubble-sender" style="color:${getAvatarColor(msg.pushName)}">${msg.pushName}</div>` : ''}
+            ${!msg.fromMe && msg.pushName ? `<div class="wa-bubble-sender" style="color:${getAvatarColor(msg.pushName)}">${escapeHtml(msg.pushName)}</div>` : ''}
             ${typeHtml}
             <div class="wa-bubble-content">${content}</div>
             <span class="wa-bubble-time">
@@ -631,15 +661,13 @@
   window.__loadMore = async function(page) {
     const btn = document.querySelector('.wa-load-more');
     if (btn) btn.remove();
-    await loadMessages(deviceSelect.value, activeJid, page, false);
+    await loadMessages(activeDevice, activeJid, page, false);
   };
 
-  // Device change
-  deviceSelect.addEventListener('change', () => {
-    const opt = deviceSelect.selectedOptions[0];
-    const status = opt?.dataset?.status || 'disconnected';
-    deviceStatus.className = 'wa-device-status ' + (status === 'connected' ? 'connected' : 'disconnected');
+  // Device filter change
+  deviceFilter.addEventListener('change', () => {
     activeJid = null;
+    activeDevice = null;
     waMain.innerHTML = emptyState.outerHTML;
     loadChats();
   });
@@ -651,8 +679,13 @@
     renderChats(allChats.filter(c =>
       c.name.toLowerCase().includes(q) ||
       c.remoteJid.toLowerCase().includes(q) ||
-      (c.lastMessage || '').toLowerCase().includes(q)
+      (c.lastMessage || '').toLowerCase().includes(q) ||
+      (c.deviceName || '').toLowerCase().includes(q) ||
+      (c.phoneNumber || '').toLowerCase().includes(q)
     ));
   });
+
+  // Load all chats on page load
+  loadChats();
 })();
 </script>

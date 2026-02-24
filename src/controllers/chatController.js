@@ -3,20 +3,27 @@ import prisma from '../lib/prisma.js';
 // Render chat page
 export const index = async (req, res) => {
   const devices = await prisma.device.findMany({
-    select: { id: true, sessionId: true, name: true, status: true },
+    select: { id: true, sessionId: true, name: true, phoneNumber: true, status: true },
   });
   res.render('chat/index', { title: 'Chat', devices });
 };
 
-// API: Get chat list (grouped conversations) for a device
+// API: Get chat list (grouped conversations) for all devices or a specific one
 export const getChats = async (req, res) => {
   const { device } = req.query;
-  if (!device) return res.json([]);
 
   try {
-    // Get the latest message per remoteJid for this device
-    const rawChats = await prisma.$queryRaw`
+    // Build session filter
+    let sessionFilter = '';
+    const params = [];
+    if (device) {
+      sessionFilter = 'AND m.session_id = ?';
+      params.push(device);
+    }
+
+    const rawChats = await prisma.$queryRawUnsafe(`
       SELECT 
+        m.session_id as sessionId,
         m.remote_jid as remoteJid,
         m.push_name as pushName,
         m.content as lastMessage,
@@ -24,23 +31,29 @@ export const getChats = async (req, res) => {
         m.from_me as fromMe,
         m.created_at as createdAt,
         m.timestamp,
+        d.name as deviceName,
+        d.phone_number as phoneNumber,
         (SELECT COUNT(*) FROM messages m2 WHERE m2.session_id = m.session_id AND m2.remote_jid = m.remote_jid) as totalMessages
       FROM messages m
       INNER JOIN (
-        SELECT remote_jid, MAX(created_at) as max_date
+        SELECT session_id, remote_jid, MAX(created_at) as max_date
         FROM messages
-        WHERE session_id = ${device}
-        AND remote_jid IS NOT NULL
+        WHERE remote_jid IS NOT NULL
         AND remote_jid != ''
-        GROUP BY remote_jid
-      ) latest ON m.remote_jid = latest.remote_jid AND m.created_at = latest.max_date
-      WHERE m.session_id = ${device}
+        ${device ? 'AND session_id = ?' : ''}
+        GROUP BY session_id, remote_jid
+      ) latest ON m.session_id = latest.session_id AND m.remote_jid = latest.remote_jid AND m.created_at = latest.max_date
+      LEFT JOIN devices d ON d.session_id = m.session_id
+      WHERE 1=1 ${sessionFilter}
       ORDER BY m.created_at DESC
-    `;
+    `, ...(device ? [device, device] : []));
 
     const chats = rawChats.map(c => ({
+      sessionId: c.sessionId,
       remoteJid: c.remoteJid,
       name: c.pushName || c.remoteJid?.split('@')[0] || 'Unknown',
+      deviceName: c.deviceName || c.sessionId,
+      phoneNumber: c.phoneNumber || null,
       lastMessage: c.fromMe ? `You: ${c.lastMessage || `[${c.messageType}]`}` : (c.lastMessage || `[${c.messageType}]`),
       messageType: c.messageType,
       time: c.createdAt,
@@ -76,7 +89,7 @@ export const getMessages = async (req, res) => {
     ]);
 
     res.json({
-      messages: messages.reverse(), // oldest first for display
+      messages: messages.reverse(),
       hasMore: page * limit < total,
       total,
     });
