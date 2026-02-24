@@ -1,5 +1,5 @@
 import prisma from '../lib/prisma.js';
-import { getSession } from '../whatsapp.js';
+import { getSession, getAllSessions } from '../whatsapp.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -14,7 +14,7 @@ if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 16 * 1024 * 1024 }, // 16MB
+  limits: { fileSize: 16 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp',
                      'video/mp4', 'video/3gpp',
@@ -26,11 +26,27 @@ const upload = multer({
 
 export const uploadMiddleware = upload.single('file');
 
-// Render chat page
+// Render chat page - merge DB devices with active sessions
 export const index = async (req, res) => {
-  const devices = await prisma.device.findMany({
+  const dbDevices = await prisma.device.findMany({
     select: { id: true, sessionId: true, name: true, phoneNumber: true, status: true },
   });
+
+  // Merge with active sessions that aren't in DB
+  const activeSessions = getAllSessions();
+  const dbSessionIds = new Set(dbDevices.map(d => d.sessionId));
+  const devices = [...dbDevices];
+
+  for (const [sessionId, session] of Object.entries(activeSessions)) {
+    if (!dbSessionIds.has(sessionId)) {
+      devices.push({ id: null, sessionId, name: sessionId, phoneNumber: null, status: session.status || 'disconnected' });
+    } else {
+      // Update status from live session
+      const dev = devices.find(d => d.sessionId === sessionId);
+      if (dev) dev.status = session.status || dev.status;
+    }
+  }
+
   res.render('chat/index', { title: 'Chat', devices });
 };
 
