@@ -94,14 +94,14 @@ const createSession = async (sessionId, io) => {
     for (let i = 0; i < sessionId.length; i++) hash = sessionId.charCodeAt(i) + ((hash << 5) - hash);
     const browser = browsers[Math.abs(hash) % browsers.length];
 
-    // Fetch latest WA version to avoid 428 errors
+    // Fetch latest WA version to avoid 405/428 errors
     let version;
     try {
         const versionInfo = await fetchLatestBaileysVersion();
         version = versionInfo.version;
         console.log(`[${sessionId}] Using WA version: ${version}`);
     } catch (e) {
-        version = [2, 3000, 1015901307]; // fallback
+        version = [2, 3000, 1034195523]; // known working fallback
         console.log(`[${sessionId}] Version fetch failed, using fallback: ${version}`);
     }
 
