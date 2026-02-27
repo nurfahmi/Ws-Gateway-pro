@@ -9,10 +9,38 @@
 
 <div class="mb-5">
   <p class="text-sm text-gray-500 dark:text-gray-400">Base URL: <code class="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded text-xs font-mono text-green-600 dark:text-green-400"><%= baseUrl %></code></p>
-  <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">All endpoints accept and return JSON. No authentication required for API routes.</p>
+  <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">All endpoints accept and return JSON. Authentication via <code class="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-xs">x-api-key</code> header is required.</p>
 </div>
 
 <div class="space-y-5">
+
+  <!-- Authentication -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+    <div class="flex items-center gap-3 mb-3">
+      <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+      <h3 class="text-sm font-semibold">Authentication</h3>
+    </div>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">All API requests require a per-device API key sent via the <code class="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs font-mono">x-api-key</code> header.</p>
+
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">How to get your API key</h4>
+    <ol class="text-sm text-gray-600 dark:text-gray-400 list-decimal list-inside space-y-1 mb-4">
+      <li>Go to the <strong>Devices</strong> page in the dashboard</li>
+      <li>Click on a device to view its details</li>
+      <li>Copy the <strong>API Key</strong> shown for that device</li>
+    </ol>
+
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Example Header</h4>
+    <div class="relative">
+      <pre class="code-block">x-api-key: your-device-api-key-here</pre>
+    </div>
+
+    <div class="mt-4 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 rounded-lg p-3">
+      <p class="text-xs text-amber-700 dark:text-amber-400"><strong>Note:</strong> Each device has its own unique API key. For session-specific routes (<code class="text-xs">/api/sessions/:sessionId/...</code>), the API key must belong to the device matching that session ID.</p>
+    </div>
+  </div>
+
+  <!-- Divider -->
+  <div class="border-t border-gray-200 dark:border-gray-800 my-2"></div>
 
   <!-- Send Text Message -->
   <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 api-card">
@@ -253,6 +281,7 @@
     <div class="relative">
       <pre class="code-block">curl -X POST <%= baseUrl %>/api/sessions/device-1/send-message \
   -H "Content-Type: application/json" \
+  -H "x-api-key: your-device-api-key" \
   -d '{
     "jid": "6281234567890@s.whatsapp.net",
     "message": { "text": "Hello from cURL!" }
@@ -263,6 +292,7 @@
     <div class="relative">
       <pre class="code-block">curl -X PUT <%= baseUrl %>/api/sessions/device-1/webhook \
   -H "Content-Type: application/json" \
+  -H "x-api-key: your-device-api-key" \
   -d '{ "url": "https://hook.eu2.make.com/your-id" }'</pre>
     </div>
   </div>
