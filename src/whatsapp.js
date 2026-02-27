@@ -210,18 +210,6 @@ const createSession = async (sessionId, io) => {
             sessionData.qr = null;
             retryCount.delete(sessionId);
             try { await prisma.device.updateMany({ where: { sessionId }, data: { status: 'connected' } }); } catch(e) {}
-
-            // Auto-recovery: watchdog to detect stuck sync
-            sessionData._gotMessage = false;
-            if (sessionData._syncWatchdog) clearTimeout(sessionData._syncWatchdog);
-            sessionData._syncWatchdog = setTimeout(async () => {
-                if (!sessionData._gotMessage && sessionData.status === 'connected') {
-                    console.log(`[${sessionId}] No messages received after 30s — reconnecting to recover...`);
-                    try { sock.end(undefined); } catch(e) {}
-                    await delay(3000);
-                    createSession(sessionId);
-                }
-            }, 30_000);
         }
 
         // Also sync disconnected status
@@ -268,9 +256,6 @@ const createSession = async (sessionId, io) => {
 
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
         console.log(`[${sessionId}] messages.upsert: type=${type}, count=${messages.length}`);
-        // Mark sync as healthy for auto-recovery watchdog
-        const sd = sessions.get(sessionId);
-        if (sd) { sd._gotMessage = true; if (sd._syncWatchdog) { clearTimeout(sd._syncWatchdog); sd._syncWatchdog = null; } }
         if (type === 'notify' || type === 'append') {
             for (const msg of messages) {
                 if (!msg.message) continue;
