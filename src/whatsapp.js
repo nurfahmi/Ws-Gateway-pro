@@ -1,4 +1,4 @@
-import makeWASocket, { DisconnectReason, delay, downloadMediaMessage } from '@whiskeysockets/baileys';
+import makeWASocket, { DisconnectReason, delay, downloadMediaMessage, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import QRCode from 'qrcode';
 import pool from './db.js';
@@ -94,10 +94,21 @@ const createSession = async (sessionId, io) => {
     for (let i = 0; i < sessionId.length; i++) hash = sessionId.charCodeAt(i) + ((hash << 5) - hash);
     const browser = browsers[Math.abs(hash) % browsers.length];
 
+    // Fetch latest WA version to avoid 428 errors
+    let version;
+    try {
+        const versionInfo = await fetchLatestBaileysVersion();
+        version = versionInfo.version;
+        console.log(`[${sessionId}] Using WA version: ${version}`);
+    } catch (e) {
+        version = [2, 3000, 1015901307]; // fallback
+        console.log(`[${sessionId}] Version fetch failed, using fallback: ${version}`);
+    }
+
     const sock = makeWASocket({
         logger: pino({ level: 'warn' }),
         printQRInTerminal: false,
-        version: [2, 3000, 1033893291],
+        version,
         auth: state,
         defaultQueryTimeoutMs: 120_000,
         keepAliveIntervalMs: 30_000,
