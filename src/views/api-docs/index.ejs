@@ -35,7 +35,33 @@
     </div>
 
     <div class="mt-4 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 rounded-lg p-3">
-      <p class="text-xs text-amber-700 dark:text-amber-400"><strong>Note:</strong> Each device has its own unique API key. For session-specific routes (<code class="text-xs">/api/sessions/:sessionId/...</code>), the API key must belong to the device matching that session ID.</p>
+      <p class="text-xs text-amber-700 dark:text-amber-400"><strong>Note:</strong> Each device has its own unique API key. The session ID is automatically resolved from your API key — you don't need to know it.</p>
+    </div>
+  </div>
+
+  <!-- Shorthand Routes Info -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-green-200 dark:border-green-800 p-5">
+    <div class="flex items-center gap-3 mb-3">
+      <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      <h3 class="text-sm font-semibold">Simplified API Routes</h3>
+    </div>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">All endpoints support a <strong>shorthand format</strong> that automatically resolves the device from your API key. No need to include the session ID in the URL:</p>
+    <div class="relative">
+      <pre class="code-block">// Shorthand (recommended) — device resolved from API key
+POST /api/send-message
+POST /api/download-media
+PUT  /api/webhook
+GET  /api/session
+POST /api/restart
+GET  /api/messages
+GET  /api/contacts
+POST /api/read
+POST /api/presence
+
+// Full format (also supported)
+POST /api/sessions/:sessionId/send-message
+POST /api/sessions/:sessionId/download-media
+...</pre>
     </div>
   </div>
 
@@ -46,7 +72,7 @@
   <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 api-card">
     <div class="flex items-center gap-3 mb-3">
       <span class="method-badge px-2 py-0.5 rounded bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400 font-bold">POST</span>
-      <code class="text-sm font-mono text-gray-700 dark:text-gray-300">/api/sessions/:sessionId/send-message</code>
+      <code class="text-sm font-mono text-gray-700 dark:text-gray-300">/api/send-message</code>
     </div>
     <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Send a text message to a WhatsApp number.</p>
 
@@ -247,12 +273,14 @@
   <!-- Webhook Payload -->
   <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
     <h3 class="text-sm font-semibold mb-3">Webhook Payload Format</h3>
-    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">When a message is received, a <code class="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs">POST</code> request is sent to your webhook URL with the following payload:</p>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">When a message is received, a <code class="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs">POST</code> request is sent to your webhook URL. The payload varies by message type:</p>
 
+    <!-- Text Message -->
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Text Message</h4>
     <div class="relative">
       <pre class="code-block">{
+  "event": "messages.upsert",
   "sessionId": "device-1",
-  "event": "message",
   "data": {
     "key": {
       "remoteJid": "6281234567890@s.whatsapp.net",
@@ -264,12 +292,155 @@
       "conversation": "Hello, this is a test message"
     },
     "messageTimestamp": 1707868800
+  },
+  "senderInfo": {
+    "jid": "6281234567890@s.whatsapp.net",
+    "pushName": "John Doe",
+    "contactName": "John Doe"
   }
 }</pre>
     </div>
 
-    <div class="mt-4 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 rounded-lg p-3">
+    <!-- Image Message -->
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mt-4 mb-2">Image Message</h4>
+    <div class="relative">
+      <pre class="code-block">{
+  "event": "messages.upsert",
+  "sessionId": "device-1",
+  "data": {
+    "key": {
+      "remoteJid": "6281234567890@s.whatsapp.net",
+      "fromMe": false,
+      "id": "3EB0A1B2C3D4E5F6"
+    },
+    "pushName": "John Doe",
+    "message": {
+      "imageMessage": {
+        "url": "https://mmg.whatsapp.net/...",
+        "mimetype": "image/jpeg",
+        "caption": "Check this photo",
+        "fileSha256": "...",
+        "fileLength": 123456,
+        "height": 1080,
+        "width": 1920,
+        "mediaKey": "...",
+        "jpegThumbnail": "&lt;base64 thumbnail&gt;"
+      }
+    },
+    "messageTimestamp": 1707868800
+  },
+  "senderInfo": {
+    "jid": "6281234567890@s.whatsapp.net",
+    "pushName": "John Doe",
+    "contactName": "John Doe"
+  }
+}</pre>
+    </div>
+
+    <!-- Document/PDF Message -->
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mt-4 mb-2">Document / PDF Message</h4>
+    <div class="relative">
+      <pre class="code-block">{
+  "event": "messages.upsert",
+  "sessionId": "device-1",
+  "data": {
+    "key": {
+      "remoteJid": "6281234567890@s.whatsapp.net",
+      "fromMe": false,
+      "id": "3EB0F1E2D3C4B5A6"
+    },
+    "pushName": "John Doe",
+    "message": {
+      "documentMessage": {
+        "url": "https://mmg.whatsapp.net/...",
+        "mimetype": "application/pdf",
+        "title": "Report.pdf",
+        "fileSha256": "...",
+        "fileLength": 456789,
+        "fileName": "Report.pdf",
+        "mediaKey": "...",
+        "jpegThumbnail": "&lt;base64 thumbnail&gt;"
+      }
+    },
+    "messageTimestamp": 1707868800
+  },
+  "senderInfo": {
+    "jid": "6281234567890@s.whatsapp.net",
+    "pushName": "John Doe",
+    "contactName": "John Doe"
+  }
+}</pre>
+    </div>
+
+    <!-- Message Status Update -->
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mt-4 mb-2">Message Status Update</h4>
+    <div class="relative">
+      <pre class="code-block">{
+  "event": "messages.update",
+  "sessionId": "device-1",
+  "data": {
+    "messageId": "BAE5A1234567890",
+    "remoteJid": "6281234567890@s.whatsapp.net",
+    "fromMe": true,
+    "statusCode": 4,
+    "status": "read",
+    "timestamp": 1707868900
+  }
+}</pre>
+    </div>
+    <div class="mt-2 mb-2">
+      <p class="text-xs text-gray-500 dark:text-gray-400">Status codes: <code class="text-xs bg-gray-100 dark:bg-gray-800 px-1 rounded">1</code> pending, <code class="text-xs bg-gray-100 dark:bg-gray-800 px-1 rounded">2</code> server_ack, <code class="text-xs bg-gray-100 dark:bg-gray-800 px-1 rounded">3</code> delivered, <code class="text-xs bg-gray-100 dark:bg-gray-800 px-1 rounded">4</code> read, <code class="text-xs bg-gray-100 dark:bg-gray-800 px-1 rounded">5</code> played</p>
+    </div>
+
+    <div class="mt-4 bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/20 rounded-lg p-3">
+      <p class="text-xs text-blue-700 dark:text-blue-400"><strong>Media Note:</strong> The <code class="text-xs">url</code> inside <code class="text-xs">imageMessage</code> / <code class="text-xs">documentMessage</code> is a temporary WhatsApp CDN URL that expires. To download the actual file, use the <strong>Download Media</strong> endpoint below, passing the <code class="text-xs">data</code> object as the request body.</p>
+    </div>
+
+    <div class="mt-2 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 rounded-lg p-3">
       <p class="text-xs text-amber-700 dark:text-amber-400"><strong>Make.com Tip:</strong> In Make.com, create a <strong>Custom Webhook</strong> module as the trigger. Copy the webhook URL and set it via the API or in the Devices page. The incoming data will be automatically parsed.</p>
+    </div>
+  </div>
+
+  <!-- Download Media -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 api-card">
+    <div class="flex items-center gap-3 mb-3">
+      <span class="method-badge px-2 py-0.5 rounded bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400 font-bold">POST</span>
+      <code class="text-sm font-mono text-gray-700 dark:text-gray-300">/api/sessions/:sessionId/download-media</code>
+    </div>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Download media (image, video, audio, document) from a received message. Returns the file as base64.</p>
+
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Request Body</h4>
+    <div class="relative">
+      <pre class="code-block">{
+  "message": {
+    "key": { "remoteJid": "6281234567890@s.whatsapp.net", "id": "MSG_ID" },
+    "message": {
+      "imageMessage": {
+        "url": "https://mmg.whatsapp.net/...",
+        "mimetype": "image/jpeg",
+        "mediaKey": "..."
+      }
+    }
+  }
+}</pre>
+    </div>
+
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mt-4 mb-2">Response</h4>
+    <div class="relative">
+      <pre class="code-block">{
+  "success": true,
+  "mediaType": "image",
+  "mimetype": "image/jpeg",
+  "filename": "photo.jpg",
+  "filesize": 123456,
+  "caption": "Check this photo",
+  "base64": "/9j/4AAQSkZJRg...",
+  "dataUrl": "data:image/jpeg;base64,/9j/4AAQSkZJRg..."
+}</pre>
+    </div>
+
+    <div class="mt-4 bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/20 rounded-lg p-3">
+      <p class="text-xs text-blue-700 dark:text-blue-400"><strong>Tip:</strong> Pass the entire <code class="text-xs">data</code> object from the webhook payload as the <code class="text-xs">message</code> field. The <code class="text-xs">dataUrl</code> in the response can be used directly in <code class="text-xs">&lt;img&gt;</code> tags.</p>
     </div>
   </div>
 
@@ -279,7 +450,7 @@
 
     <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Send Text</h4>
     <div class="relative">
-      <pre class="code-block">curl -X POST <%= baseUrl %>/api/sessions/device-1/send-message \
+      <pre class="code-block">curl -X POST <%= baseUrl %>/api/send-message \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-device-api-key" \
   -d '{
@@ -290,10 +461,16 @@
 
     <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mt-4 mb-2">Set Webhook</h4>
     <div class="relative">
-      <pre class="code-block">curl -X PUT <%= baseUrl %>/api/sessions/device-1/webhook \
+      <pre class="code-block">curl -X PUT <%= baseUrl %>/api/webhook \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-device-api-key" \
   -d '{ "url": "https://hook.eu2.make.com/your-id" }'</pre>
+    </div>
+
+    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mt-4 mb-2">Check Session Status</h4>
+    <div class="relative">
+      <pre class="code-block">curl <%= baseUrl %>/api/session \
+  -H "x-api-key: your-device-api-key"</pre>
     </div>
   </div>
 

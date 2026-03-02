@@ -246,6 +246,120 @@ app.get('/api/sessions/:id/contacts/:jid', apiKeyAuth, async (req, res) => {
   res.json(contact ? { ...contact, profilePicUrl } : { jid: req.params.jid, profilePicUrl });
 });
 
+// ===== Shorthand API Routes (no session ID needed, resolved from API key) =====
+app.post('/api/send-message', apiKeyAuth, async (req, res) => {
+  const id = req.params.id; // auto-resolved by middleware
+  const { jid, message } = req.body;
+  const session = getSession(id);
+  if (!session || session.status !== 'connected') {
+    return res.status(400).json({ error: 'Session not connected' });
+  }
+  try {
+    const response = await session.sendMessage(jid, message);
+    res.json({ status: 'success', messageId: response?.key?.id, response });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to send message', details: error.message });
+  }
+});
+
+app.post('/api/download-media', apiKeyAuth, async (req, res) => {
+  const id = req.params.id;
+  const { message } = req.body;
+  if (!message || !message.message) {
+    return res.status(400).json({ error: 'message object is required' });
+  }
+  const session = getSession(id);
+  if (!session || session.status !== 'connected') {
+    return res.status(400).json({ error: 'Session not connected' });
+  }
+  try {
+    const result = await downloadMedia(id, message);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to download media', details: error.message });
+  }
+});
+
+app.put('/api/webhook', apiKeyAuth, async (req, res) => {
+  const id = req.params.id;
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: 'url is required' });
+  const success = await updateWebhook(id, url);
+  if (!success) return res.status(500).json({ error: 'Failed to update webhook' });
+  res.json({ message: 'Webhook updated', sessionId: id, url });
+});
+
+app.get('/api/session', apiKeyAuth, (req, res) => {
+  const id = req.params.id;
+  const session = getSession(id);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+  res.json({ sessionId: id, status: session.status, qr: session.qr });
+});
+
+app.post('/api/restart', apiKeyAuth, async (req, res) => {
+  const id = req.params.id;
+  await createSession(id);
+  res.json({ message: 'Session restarted', sessionId: id });
+});
+
+app.get('/api/messages', apiKeyAuth, (req, res) => {
+  const id = req.params.id;
+  const session = getSession(id);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+  const messages = getSessionMessages(id, parseInt(req.query.limit) || 50);
+  res.json({ sessionId: id, count: messages.length, messages });
+});
+
+app.get('/api/contacts', apiKeyAuth, (req, res) => {
+  const id = req.params.id;
+  const session = getSession(id);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+  const contacts = getAllContacts(id);
+  res.json({ sessionId: id, count: contacts.length, contacts });
+});
+
+app.post('/api/read', apiKeyAuth, async (req, res) => {
+  const id = req.params.id;
+  const { messages } = req.body;
+  if (!messages || (!Array.isArray(messages) && !messages.remoteJid)) {
+    return res.status(400).json({ error: 'messages is required' });
+  }
+  const session = getSession(id);
+  if (!session || session.status !== 'connected') {
+    return res.status(400).json({ error: 'Session not connected' });
+  }
+  try {
+    const messageList = Array.isArray(messages) ? messages : [messages];
+    const result = await markAsRead(id, messageList);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to mark as read', details: error.message });
+  }
+});
+
+app.post('/api/presence', apiKeyAuth, async (req, res) => {
+  const id = req.params.id;
+  const { jid, presence } = req.body;
+  if (!jid || !presence) {
+    return res.status(400).json({ error: 'jid and presence are required' });
+  }
+  const validPresences = ['composing', 'paused', 'recording', 'available', 'unavailable'];
+  if (!validPresences.includes(presence)) {
+    return res.status(400).json({ error: 'Invalid presence value', validPresences });
+  }
+  const session = getSession(id);
+  if (!session || session.status !== 'connected') {
+    return res.status(400).json({ error: 'Session not connected' });
+  }
+  try {
+    const result = await sendPresence(id, jid, presence);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to send presence', details: error.message });
+  }
+});
+
 // ===== Dashboard Routes (EJS, session auth) =====
 app.use('/', routes);
 

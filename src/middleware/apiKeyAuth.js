@@ -21,9 +21,13 @@ export const apiKeyAuth = async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid API key' });
     }
 
-    // For session-specific routes, verify the API key matches the session
-    const sessionId = req.params.id;
-    if (sessionId && sessionId !== device.sessionId) {
+    // Auto-resolve session ID from API key when not provided in URL
+    if (!req.params.id) {
+      req.params.id = device.sessionId;
+    }
+
+    // If session ID IS provided, verify it matches the API key's device
+    if (req.params.id !== device.sessionId) {
       return res.status(403).json({ error: 'API key does not match this session' });
     }
 
