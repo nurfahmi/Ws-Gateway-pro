@@ -285,9 +285,7 @@ const createSession = async (sessionId, io) => {
                 else if (m.extendedTextMessage) { content = m.extendedTextMessage.text || ''; }
                 else if (m.imageMessage) {
                     messageType = 'image';
-                    const caption = m.imageMessage.caption || '';
-                    const thumb = m.imageMessage.jpegThumbnail ? Buffer.from(m.imageMessage.jpegThumbnail).toString('base64') : '';
-                    content = thumb ? `thumb:${thumb}|${caption}` : caption;
+                    content = m.imageMessage.caption || '';
                 }
                 else if (m.videoMessage) { messageType = 'video'; content = m.videoMessage.caption || ''; }
                 else if (m.audioMessage) { messageType = 'audio'; }

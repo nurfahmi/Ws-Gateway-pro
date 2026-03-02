@@ -135,19 +135,39 @@ export const getChats = async (req, res) => {
       ORDER BY m.created_at DESC
     `, ...params, ...params);
 
-    const chats = rawChats.map(c => ({
-      sessionId: c.sessionId,
-      remoteJid: c.remoteJid,
-      name: c.pushName || c.remoteJid?.split('@')[0] || 'Unknown',
-      deviceName: c.deviceName || c.sessionId,
-      phoneNumber: c.phoneNumber || null,
-      lastMessage: c.fromMe ? `You: ${c.lastMessage || `[${c.messageType}]`}` : (c.lastMessage || `[${c.messageType}]`),
-      messageType: c.messageType,
-      time: c.createdAt,
-      timestamp: c.timestamp ? c.timestamp.toString() : null,
-      totalMessages: Number(c.totalMessages),
-      isGroup: c.remoteJid?.includes('@g.us') || false,
-    }));
+    const mediaLabels = { image: '📷 Photo', video: '🎥 Video', audio: '🎵 Audio', ptt: '🎤 Voice message', document: '📄', sticker: '🏷️ Sticker' };
+
+    const chats = rawChats.map(c => {
+      let preview = c.lastMessage || '';
+      // Clean up legacy thumb:base64 content
+      if (preview.startsWith('thumb:')) {
+        const pipeIdx = preview.indexOf('|');
+        preview = pipeIdx > 0 ? preview.substring(pipeIdx + 1) : '';
+      }
+      // Friendly label for media types
+      const mt = c.messageType;
+      if (mt && mt !== 'text' && mediaLabels[mt]) {
+        const label = mt === 'document' ? `📄 ${preview || 'Document'}` : (preview ? `${mediaLabels[mt]} · ${preview}` : mediaLabels[mt]);
+        preview = label;
+      } else if (mt && mt !== 'text' && !preview) {
+        preview = `[${mt}]`;
+      }
+      if (c.fromMe) preview = `You: ${preview}`;
+
+      return {
+        sessionId: c.sessionId,
+        remoteJid: c.remoteJid,
+        name: c.pushName || c.remoteJid?.split('@')[0] || 'Unknown',
+        deviceName: c.deviceName || c.sessionId,
+        phoneNumber: c.phoneNumber || null,
+        lastMessage: preview,
+        messageType: c.messageType,
+        time: c.createdAt,
+        timestamp: c.timestamp ? c.timestamp.toString() : null,
+        totalMessages: Number(c.totalMessages),
+        isGroup: c.remoteJid?.includes('@g.us') || false,
+      };
+    });
 
     res.json(chats);
   } catch (error) {

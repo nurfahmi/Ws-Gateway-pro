@@ -52,22 +52,13 @@
   }
 
   // ─── Media HTML ───
-  function parseImageContent(content) {
-    if(content && content.startsWith('thumb:')) {
-      const pipeIdx = content.indexOf('|');
-      if(pipeIdx > 0) return { thumb: content.substring(6, pipeIdx), caption: content.substring(pipeIdx+1) };
-      return { thumb: content.substring(6), caption: '' };
-    }
-    return { thumb: null, caption: content || '' };
-  }
-
   function mediaHtml(mt, content) {
     const icons = { image:'📷 Photo', video:'🎥 Video', audio:'🎵 Audio', ptt:'🎤 Voice', document:'📄', sticker:'🏷️ Sticker', location:'📍 Location', liveLocationMessage:'📍 Live Location', contactMessage:'👤 Contact', contactsArrayMessage:'👥 Contacts' };
     if(mt==='image') {
-      const { thumb, caption } = parseImageContent(content);
-      let h = thumb
-        ? `<img class="wa-media-img" src="data:image/jpeg;base64,${thumb}" alt="Photo" loading="lazy">`
-        : `<div class="wa-media-placeholder">📷 <span>Photo</span></div>`;
+      let caption = content || '';
+      // Handle legacy thumb:base64|caption format
+      if(caption.startsWith('thumb:')) { const i=caption.indexOf('|'); caption=i>0?caption.substring(i+1):''; }
+      let h = `<div class="wa-media-placeholder">📷 <span>Photo</span></div>`;
       if(caption) h += `<div class="wa-media-caption">${esc(caption)}</div>`;
       return h;
     }
@@ -385,14 +376,27 @@
   chatSearch.addEventListener('search',()=>{ if(!chatSearch.value) renderChats(allChats); });
 
   // ─── Socket.IO Real-time ───
+  const mediaLabels = { image:'📷 Photo', video:'🎥 Video', audio:'🎵 Audio', ptt:'🎤 Voice message', document:'📄', sticker:'🏷️ Sticker' };
+  function chatPreview(msg) {
+    let p = msg.content || '';
+    if(p.startsWith('thumb:')) { const i=p.indexOf('|'); p=i>0?p.substring(i+1):''; }
+    const mt = msg.messageType;
+    if(mt && mt!=='text' && mediaLabels[mt]) {
+      p = mt==='document' ? `📄 ${p||'Document'}` : (p ? `${mediaLabels[mt]} · ${p}` : mediaLabels[mt]);
+    } else if(mt && mt!=='text' && !p) { p = `[${mt}]`; }
+    return p;
+  }
+
   socket.on('new-message', msg => {
     // Skip if device filter is set and this message is from a different device
     const filterDev = deviceFilter.value;
     if(filterDev && msg.sessionId !== filterDev) return;
 
+    const preview = msg.fromMe ? `You: ${chatPreview(msg)}` : chatPreview(msg);
+
     const chatIdx=allChats.findIndex(c=>c.sessionId===msg.sessionId&&c.remoteJid===msg.remoteJid);
     if(chatIdx>=0){
-      allChats[chatIdx].lastMessage=msg.fromMe?`You: ${msg.content||`[${msg.messageType}]`}`:(msg.content||`[${msg.messageType}]`);
+      allChats[chatIdx].lastMessage=preview;
       allChats[chatIdx].time=msg.createdAt; allChats[chatIdx].totalMessages++;
       const [item]=allChats.splice(chatIdx,1); allChats.unshift(item);
     } else {
@@ -403,7 +407,7 @@
         name:msg.pushName||msg.remoteJid?.split('@')[0]||'Unknown',
         deviceName:dev?.name||msg.sessionId,
         phoneNumber:dev?.phoneNumber||null,
-        lastMessage:msg.fromMe?`You: ${msg.content||`[${msg.messageType}]`}`:(msg.content||`[${msg.messageType}]`),
+        lastMessage:preview,
         messageType:msg.messageType, time:msg.createdAt,
         totalMessages:1, isGroup:msg.remoteJid?.includes('@g.us')||false
       });
