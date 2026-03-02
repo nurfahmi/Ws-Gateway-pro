@@ -39,32 +39,6 @@
     </div>
   </div>
 
-  <!-- Shorthand Routes Info -->
-  <div class="bg-white dark:bg-gray-900 rounded-xl border border-green-200 dark:border-green-800 p-5">
-    <div class="flex items-center gap-3 mb-3">
-      <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-      <h3 class="text-sm font-semibold">Simplified API Routes</h3>
-    </div>
-    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">All endpoints support a <strong>shorthand format</strong> that automatically resolves the device from your API key. No need to include the session ID in the URL:</p>
-    <div class="relative">
-      <pre class="code-block">// Shorthand (recommended) — device resolved from API key
-POST /api/send-message
-POST /api/download-media
-PUT  /api/webhook
-GET  /api/session
-POST /api/restart
-GET  /api/messages
-GET  /api/contacts
-POST /api/read
-POST /api/presence
-
-// Full format (also supported)
-POST /api/sessions/:sessionId/send-message
-POST /api/sessions/:sessionId/download-media
-...</pre>
-    </div>
-  </div>
-
   <!-- Divider -->
   <div class="border-t border-gray-200 dark:border-gray-800 my-2"></div>
 
@@ -140,72 +114,6 @@ POST /api/sessions/:sessionId/download-media
     </div>
   </div>
 
-  <!-- Send Video -->
-  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 api-card">
-    <div class="flex items-center gap-3 mb-3">
-      <span class="method-badge px-2 py-0.5 rounded bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400 font-bold">POST</span>
-      <code class="text-sm font-mono text-gray-700 dark:text-gray-300">/api/sessions/:sessionId/send-message</code>
-    </div>
-    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Send a video with optional caption.</p>
-
-    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Request Body</h4>
-    <div class="relative">
-      <pre class="code-block">{
-  "jid": "6281234567890@s.whatsapp.net",
-  "message": {
-    "video": { "url": "https://example.com/clip.mp4" },
-    "caption": "Video message"
-  }
-}</pre>
-    </div>
-  </div>
-
-  <!-- Send Location -->
-  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 api-card">
-    <div class="flex items-center gap-3 mb-3">
-      <span class="method-badge px-2 py-0.5 rounded bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400 font-bold">POST</span>
-      <code class="text-sm font-mono text-gray-700 dark:text-gray-300">/api/sessions/:sessionId/send-message</code>
-    </div>
-    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Send a location pin.</p>
-
-    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Request Body</h4>
-    <div class="relative">
-      <pre class="code-block">{
-  "jid": "6281234567890@s.whatsapp.net",
-  "message": {
-    "location": {
-      "degreesLatitude": -6.2088,
-      "degreesLongitude": 106.8456
-    }
-  }
-}</pre>
-    </div>
-  </div>
-
-  <!-- Send Buttons -->
-  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 api-card">
-    <div class="flex items-center gap-3 mb-3">
-      <span class="method-badge px-2 py-0.5 rounded bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400 font-bold">POST</span>
-      <code class="text-sm font-mono text-gray-700 dark:text-gray-300">/api/sessions/:sessionId/send-message</code>
-    </div>
-    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Send a message with buttons.</p>
-
-    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Request Body</h4>
-    <div class="relative">
-      <pre class="code-block">{
-  "jid": "6281234567890@s.whatsapp.net",
-  "message": {
-    "text": "Choose an option:",
-    "footer": "Powered by WA Gateway",
-    "buttons": [
-      { "buttonId": "btn1", "buttonText": { "displayText": "Option 1" } },
-      { "buttonId": "btn2", "buttonText": { "displayText": "Option 2" } }
-    ],
-    "headerType": 1
-  }
-}</pre>
-    </div>
-  </div>
 
   <!-- Divider -->
   <div class="border-t border-gray-200 dark:border-gray-800 my-2"></div>
