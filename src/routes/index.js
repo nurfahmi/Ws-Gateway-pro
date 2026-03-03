@@ -54,7 +54,7 @@ router.get('/stop-impersonate', requireAuth, userCtrl.stopImpersonate);
 router.get('/devices', requireAuth, deviceCtrl.index);
 router.post('/devices/create', requireAuth, requireRole('superadmin', 'manager'), deviceCtrl.createPost);
 router.post('/devices/:id/delete', requireAuth, requireRole('superadmin', 'manager'), deviceCtrl.deleteDevice);
-router.post('/devices/:id/restart', requireAuth, requireRole('superadmin', 'manager'), deviceCtrl.restartDevice);
+router.post('/devices/:id/restart', requireAuth, deviceCtrl.restartDevice);
 router.post('/devices/:id/webhook', requireAuth, requireRole('superadmin', 'manager'), deviceCtrl.updateWebhookUrl);
 router.post('/devices/:id/regenerate-key', requireAuth, requireRole('superadmin', 'manager'), deviceCtrl.regenerateApiKey);
 router.post('/devices/session/:sessionId/delete', requireAuth, requireRole('superadmin'), deviceCtrl.deleteBySessionId);

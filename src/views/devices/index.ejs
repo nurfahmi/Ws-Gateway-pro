@@ -110,7 +110,7 @@
           </td>
           <td class="px-5 py-3 text-xs text-gray-500 dark:text-gray-400"><%= d.creator ? d.creator.name : (d.id ? '—' : 'API') %></td>
           <td class="px-5 py-3 text-right">
-            <% if ((user.role === 'superadmin' || user.role === 'manager') && d.id) { %>
+            <% if (d.id) { %>
               <div class="flex items-center justify-end gap-1">
                 <% if (d.liveStatus === 'connected') { %>
                   <button onclick="openGroupsModal(<%= d.id %>, '<%= (d.name || d.sessionId).replace(/'/g, "\\'") %>')" class="px-2.5 py-1 text-xs font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 rounded transition">Groups</button>
@@ -118,15 +118,17 @@
                 <form method="POST" action="/devices/<%= d.id %>/restart" class="inline">
                   <button type="submit" class="px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded transition">Restart</button>
                 </form>
-                <button onclick="openWebhookModal(<%= d.id %>, '<%= (d.webhookUrl || '').replace(/'/g, "\\'") %>')" class="px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition">Webhook</button>
-                <form method="POST" action="/devices/<%= d.id %>/regenerate-key" class="inline" onsubmit="return confirm('Regenerate API key? The old key will stop working.')">
-                  <button type="submit" class="px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded transition">Regen Key</button>
-                </form>
-                <form method="POST" action="/devices/<%= d.id %>/delete" class="inline" onsubmit="return confirm('Remove this device?')">
-                  <button type="submit" class="px-2.5 py-1 text-xs font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition">Remove</button>
-                </form>
+                <% if (user.role === 'superadmin' || user.role === 'manager') { %>
+                  <button onclick="openWebhookModal(<%= d.id %>, '<%= (d.webhookUrl || '').replace(/'/g, "\\'") %>')" class="px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition">Webhook</button>
+                  <form method="POST" action="/devices/<%= d.id %>/regenerate-key" class="inline" onsubmit="return confirm('Regenerate API key? The old key will stop working.')">
+                    <button type="submit" class="px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded transition">Regen Key</button>
+                  </form>
+                  <form method="POST" action="/devices/<%= d.id %>/delete" class="inline" onsubmit="return confirm('Remove this device?')">
+                    <button type="submit" class="px-2.5 py-1 text-xs font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition">Remove</button>
+                  </form>
+                <% } %>
               </div>
-            <% } else if (user.role === 'superadmin' && !d.id) { %>
+            <% } else if (user.role === 'superadmin') { %>
               <div class="flex items-center justify-end gap-1">
                 <form method="POST" action="/devices/session/<%= encodeURIComponent(d.sessionId) %>/delete" class="inline" onsubmit="return confirm('Remove this unregistered session?')">
                   <button type="submit" class="px-2.5 py-1 text-xs font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition">Remove Session</button>
