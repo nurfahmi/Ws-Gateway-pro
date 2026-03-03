@@ -254,6 +254,33 @@ const createSession = async (sessionId, io) => {
         }
     });
 
+    // Store group metadata (subject/name) in contact store
+    sock.ev.on('groups.upsert', (groups) => {
+        if (!contactStore.has(sessionId)) {
+            contactStore.set(sessionId, new Map());
+        }
+        const sessionContacts = contactStore.get(sessionId);
+        for (const g of groups) {
+            if (g.id) {
+                const existing = sessionContacts.get(g.id) || {};
+                sessionContacts.set(g.id, { ...existing, jid: g.id, name: g.subject || existing.name || null });
+            }
+        }
+        console.log(`[${sessionId}] Groups upsert: ${groups.length} groups`);
+    });
+
+    sock.ev.on('groups.update', (updates) => {
+        if (!contactStore.has(sessionId)) return;
+        const sessionContacts = contactStore.get(sessionId);
+        for (const g of updates) {
+            if (g.id) {
+                const existing = sessionContacts.get(g.id) || { jid: g.id };
+                if (g.subject) existing.name = g.subject;
+                sessionContacts.set(g.id, existing);
+            }
+        }
+    });
+
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
         console.log(`[${sessionId}] messages.upsert: type=${type}, count=${messages.length}`);
         if (type === 'notify' || type === 'append') {
@@ -268,6 +295,20 @@ const createSession = async (sessionId, io) => {
                     if (sessionContacts && sessionContacts.has(senderJid)) {
                         const contact = sessionContacts.get(senderJid);
                         contactName = contact.name || contact.verifiedName || null;
+                    }
+                }
+
+                // Lazy-fetch group name if not in contact store
+                if (senderJid?.includes('@g.us')) {
+                    if (!contactStore.has(sessionId)) contactStore.set(sessionId, new Map());
+                    const sc = contactStore.get(sessionId);
+                    if (!sc.has(senderJid) || !sc.get(senderJid).name) {
+                        try {
+                            const meta = await sock.groupMetadata(senderJid);
+                            if (meta?.subject) {
+                                sc.set(senderJid, { ...(sc.get(senderJid) || {}), jid: senderJid, name: meta.subject });
+                            }
+                        } catch(e) {}
                     }
                 }
 

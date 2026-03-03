@@ -78,7 +78,7 @@ router.get('/chat-history/api/chats', requireAuth, chatCtrl.historyChats);
 router.get('/chat-history/api/messages', requireAuth, chatCtrl.historyMessages);
 
 // Analytics
-router.get('/analytics', requireAuth, analyticsCtrl.index);
+router.get('/analytics', requireAuth, requireRole('superadmin', 'manager'), analyticsCtrl.index);
 
 // Monitor (superadmin + manager)
 router.get('/monitor', requireAuth, requireRole('superadmin', 'manager'), monitorCtrl.index);

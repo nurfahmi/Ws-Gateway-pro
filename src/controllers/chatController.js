@@ -1,5 +1,5 @@
 import prisma from '../lib/prisma.js';
-import { getSession, getAllSessions } from '../whatsapp.js';
+import { getSession, getAllSessions, getContact } from '../whatsapp.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -157,7 +157,14 @@ export const getChats = async (req, res) => {
       return {
         sessionId: c.sessionId,
         remoteJid: c.remoteJid,
-        name: c.pushName || c.remoteJid?.split('@')[0] || 'Unknown',
+        name: (() => {
+          const isGroup = c.remoteJid?.includes('@g.us');
+          if (isGroup) {
+            const contact = getContact(c.sessionId, c.remoteJid);
+            if (contact?.name) return contact.name;
+          }
+          return c.pushName || c.remoteJid?.split('@')[0] || 'Unknown';
+        })(),
         deviceName: c.deviceName || c.sessionId,
         phoneNumber: c.phoneNumber || null,
         lastMessage: preview,
@@ -413,7 +420,14 @@ export const historyChats = async (req, res) => {
     const chats = rawChats.map(c => ({
       sessionId: c.sessionId,
       remoteJid: c.remoteJid,
-      name: c.pushName || c.remoteJid?.split('@')[0] || 'Unknown',
+      name: (() => {
+        const isGroup = c.remoteJid?.includes('@g.us');
+        if (isGroup) {
+          const contact = getContact(c.sessionId, c.remoteJid);
+          if (contact?.name) return contact.name;
+        }
+        return c.pushName || c.remoteJid?.split('@')[0] || 'Unknown';
+      })(),
       deviceName: c.deviceName || c.sessionId,
       phoneNumber: c.phoneNumber || null,
       deviceStatus: c.deviceStatus,

@@ -209,6 +209,8 @@
       <p class="text-sm text-red-500" id="groupsErrorMsg"></p>
     </div>
     <div id="groupsList" class="hidden overflow-y-auto flex-1">
+      <input type="text" id="groupsSearch" placeholder="Search groups..." oninput="filterGroups()"
+        class="w-full px-3 py-2 mb-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition">
       <div class="text-xs text-gray-400 mb-2"><span id="groupsCount">0</span> groups</div>
       <div id="groupsBody" class="space-y-2"></div>
     </div>
@@ -280,7 +282,10 @@
     document.getElementById('webhookModal').classList.remove('flex');
   }
 
+  let _cachedGroups = [];
+
   async function openGroupsModal(deviceId, deviceName) {
+    _cachedGroups = [];
     document.getElementById('groupsDeviceName').textContent = deviceName;
     document.getElementById('groupsLoading').classList.remove('hidden');
     document.getElementById('groupsError').classList.add('hidden');
@@ -291,34 +296,44 @@
       const res = await fetch('/devices/' + deviceId + '/groups');
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      const groups = data.groups || [];
-      document.getElementById('groupsCount').textContent = groups.length;
-      const body = document.getElementById('groupsBody');
-      if (groups.length === 0) {
-        body.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">No groups found</p>';
-      } else {
-        body.innerHTML = groups.map(g => `
-          <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <div class="min-w-0 flex-1">
-              <p class="text-sm font-medium truncate">${escapeHtml(g.subject)}</p>
-              <p class="text-[11px] text-gray-500 dark:text-gray-400 font-mono">${g.id}</p>
-            </div>
-            <div class="flex items-center gap-2 ml-3 shrink-0">
-              <span class="text-[10px] text-gray-400">${g.size} members</span>
-              <button onclick="copyGroupId('${g.id}')" class="text-gray-400 hover:text-purple-500 transition" title="Copy Group JID">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
-              </button>
-            </div>
-          </div>
-        `).join('');
-      }
+      _cachedGroups = data.groups || [];
+      document.getElementById('groupsSearch').value = '';
+      renderGroups(_cachedGroups);
       document.getElementById('groupsLoading').classList.add('hidden');
       document.getElementById('groupsList').classList.remove('hidden');
+      document.getElementById('groupsSearch').focus();
     } catch (err) {
       document.getElementById('groupsLoading').classList.add('hidden');
       document.getElementById('groupsErrorMsg').textContent = err.message;
       document.getElementById('groupsError').classList.remove('hidden');
     }
+  }
+  function renderGroups(groups) {
+    document.getElementById('groupsCount').textContent = groups.length;
+    const body = document.getElementById('groupsBody');
+    if (groups.length === 0) {
+      body.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">No groups found</p>';
+    } else {
+      body.innerHTML = groups.map(g => `
+        <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-medium truncate">${escapeHtml(g.subject)}</p>
+            <p class="text-[11px] text-gray-500 dark:text-gray-400 font-mono">${g.id}</p>
+          </div>
+          <div class="flex items-center gap-2 ml-3 shrink-0">
+            <span class="text-[10px] text-gray-400">${g.size} members</span>
+            <button onclick="copyGroupId('${g.id}')" class="text-gray-400 hover:text-purple-500 transition" title="Copy Group JID">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+  function filterGroups() {
+    const q = document.getElementById('groupsSearch').value.toLowerCase();
+    if (!q) { renderGroups(_cachedGroups); return; }
+    renderGroups(_cachedGroups.filter(g => g.subject.toLowerCase().includes(q) || g.id.toLowerCase().includes(q)));
   }
   function closeGroups() {
     document.getElementById('groupsModal').classList.add('hidden');
