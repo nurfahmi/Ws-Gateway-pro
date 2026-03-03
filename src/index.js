@@ -277,6 +277,56 @@ app.post('/api/send-message', apiKeyAuth, async (req, res) => {
   }
 });
 
+// Simplified send to person (auto-appends @s.whatsapp.net)
+app.post('/api/send', apiKeyAuth, async (req, res) => {
+  const id = req.params.id;
+  const { to, body } = req.body;
+  if (!to || !body) return res.status(400).json({ error: 'to and body are required' });
+
+  const session = getSession(id);
+  if (!session || session.status !== 'connected') {
+    return res.status(400).json({ error: 'Session not connected' });
+  }
+
+  const recipients = Array.isArray(to) ? to : [to];
+  const results = [];
+  for (const num of recipients) {
+    const jid = num.includes('@') ? num : `${num}@s.whatsapp.net`;
+    try {
+      const r = await session.sendMessage(jid, { text: body });
+      results.push({ to: num, status: 'sent', messageId: r?.key?.id });
+    } catch (e) {
+      results.push({ to: num, status: 'failed', error: e.message });
+    }
+  }
+  res.json({ status: 'success', results });
+});
+
+// Simplified send to group (auto-appends @g.us)
+app.post('/api/send-group', apiKeyAuth, async (req, res) => {
+  const id = req.params.id;
+  const { to, body } = req.body;
+  if (!to || !body) return res.status(400).json({ error: 'to and body are required' });
+
+  const session = getSession(id);
+  if (!session || session.status !== 'connected') {
+    return res.status(400).json({ error: 'Session not connected' });
+  }
+
+  const recipients = Array.isArray(to) ? to : [to];
+  const results = [];
+  for (const gid of recipients) {
+    const jid = gid.includes('@') ? gid : `${gid}@g.us`;
+    try {
+      const r = await session.sendMessage(jid, { text: body });
+      results.push({ to: gid, status: 'sent', messageId: r?.key?.id });
+    } catch (e) {
+      results.push({ to: gid, status: 'failed', error: e.message });
+    }
+  }
+  res.json({ status: 'success', results });
+});
+
 app.post('/api/download-media', apiKeyAuth, async (req, res) => {
   const id = req.params.id;
   const { message } = req.body;
