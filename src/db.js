@@ -30,7 +30,7 @@ export const initDb = async () => {
 
     // 2. Push Prisma schema (creates/syncs all tables)
     console.log('Syncing database schema...');
-    execSync('npx prisma db push --skip-generate 2>&1', { stdio: 'inherit' });
+    execSync('npx prisma db push --skip-generate --accept-data-loss 2>&1', { stdio: 'inherit' });
     console.log('Database schema synced');
 
     // 3. Ensure session_store table exists (used by raw mysql2 queries)

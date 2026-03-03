@@ -113,6 +113,13 @@ export const getChats = async (req, res) => {
         m.session_id as sessionId,
         m.remote_jid as remoteJid,
         m.push_name as pushName,
+        COALESCE(
+          (SELECT m3.push_name FROM messages m3 
+           WHERE m3.session_id = m.session_id AND m3.remote_jid = m.remote_jid 
+           AND m3.from_me = 0 AND m3.push_name IS NOT NULL AND m3.push_name != ''
+           ORDER BY m3.created_at DESC LIMIT 1),
+          m.push_name
+        ) as contactName,
         m.content as lastMessage,
         m.message_type as messageType,
         m.from_me as fromMe,
@@ -158,12 +165,9 @@ export const getChats = async (req, res) => {
         sessionId: c.sessionId,
         remoteJid: c.remoteJid,
         name: (() => {
-          const isGroup = c.remoteJid?.includes('@g.us');
-          if (isGroup) {
-            const contact = getContact(c.sessionId, c.remoteJid);
-            if (contact?.name) return contact.name;
-          }
-          return c.pushName || c.remoteJid?.split('@')[0] || 'Unknown';
+          const contact = getContact(c.sessionId, c.remoteJid);
+          if (contact?.name) return contact.name;
+          return c.contactName || c.pushName || c.remoteJid?.split('@')[0] || 'Unknown';
         })(),
         deviceName: c.deviceName || c.sessionId,
         phoneNumber: c.phoneNumber || null,

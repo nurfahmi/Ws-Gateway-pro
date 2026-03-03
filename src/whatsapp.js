@@ -282,8 +282,9 @@ const createSession = async (sessionId, io) => {
     });
 
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
-        console.log(`[${sessionId}] messages.upsert: type=${type}, count=${messages.length}`);
-        if (type === 'notify' || type === 'append') {
+        if (type !== 'notify') return;
+        console.log(`[${sessionId}] messages.upsert: count=${messages.length}`);
+        {
             for (const msg of messages) {
                 if (!msg.message) continue;
 
@@ -376,8 +377,6 @@ const createSession = async (sessionId, io) => {
                                 createdAt: saved.createdAt,
                             });
                             console.log(`[${sessionId}] Socket.IO emitted new-message to ${senderJid}`);
-                        } else {
-                            console.log(`[${sessionId}] Socket.IO not initialized (io is null)`);
                         }
                     } catch(e) {
                         console.error(`[${sessionId}] Socket.IO emit error:`, e.message);
@@ -389,26 +388,26 @@ const createSession = async (sessionId, io) => {
                 // Send webhook
                 const sessionData = sessions.get(sessionId);
                 const webhookUrl = sessionData?.webhookUrl || globalWebhookUrl;
-                if (!webhookUrl) continue;
-
-                try {
-                    await fetch(webhookUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            event: 'messages.upsert',
-                            sessionId,
-                            data: msg,
-                            senderInfo: {
-                                jid: senderJid,
-                                pushName: msg.pushName || null,
-                                contactName: contactName
-                            }
-                        })
-                    });
-                    console.log(`[${sessionId}] Webhook sent to ${webhookUrl}`);
-                } catch (err) {
-                    console.error(`[${sessionId}] Webhook failed:`, err.message);
+                if (webhookUrl) {
+                    try {
+                        await fetch(webhookUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                event: 'messages.upsert',
+                                sessionId,
+                                data: msg,
+                                senderInfo: {
+                                    jid: senderJid,
+                                    pushName: msg.pushName || null,
+                                    contactName: contactName
+                                }
+                            })
+                        });
+                        console.log(`[${sessionId}] Webhook sent to ${webhookUrl}`);
+                    } catch (err) {
+                        console.error(`[${sessionId}] Webhook failed:`, err.message);
+                    }
                 }
             }
         }
@@ -491,11 +490,9 @@ const createSession = async (sessionId, io) => {
                     });
                     console.log(`[${sessionId}] Message status update: ${messageId} -> ${statusName}`);
                 } catch (err) {
-                    console.error(`[${sessionId}] Status webhook failed:`, err.message);
+                    // silently fail — webhook unreachable
                 }
-            } else {
-                console.log(`[${sessionId}] Message status update: ${messageId} -> ${statusName}`);
-            }
+            } 
         }
     });
 

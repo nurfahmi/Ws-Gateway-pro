@@ -333,13 +333,13 @@
     body.innerHTML=`
       <div class="wa-info-avatar" style="background:${color}">${isGroup?groupIcon(64):getInitials(name)}</div>
       <div class="wa-info-name">${esc(name)}</div>
-      <div class="wa-info-jid">${esc(activeJid)}</div>
+      <div class="wa-info-jid">${esc(isGroup ? activeJid : (activeJid?.includes('@s.whatsapp.net') ? activeJid?.split('@')[0] : activeJid))}</div>
       <div class="wa-info-section">
         <h4>About</h4>
         <div class="wa-info-row">${isGroup?'Group chat':'Personal chat'}</div>
+        ${!isGroup && activeJid?.includes('@s.whatsapp.net')?`<div class="wa-info-row"><span>Phone:</span> ${esc(activeJid?.split('@')[0] || '')}</div>`:''}
         <div class="wa-info-row"><span>Device:</span> ${esc(chat?.deviceName||activeDevice)}</div>
         <div class="wa-info-row"><span>Status:</span> ${conn?'🟢 Online':'🔴 Offline'}</div>
-        ${chat?.phoneNumber?`<div class="wa-info-row"><span>Phone:</span> ${esc(chat.phoneNumber)}</div>`:''}
         <div class="wa-info-row"><span>Total Messages:</span> ${chat?.totalMessages||0}</div>
       </div>`;
   }
