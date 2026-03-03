@@ -41,7 +41,14 @@
 </head>
 <body class="h-full bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors">
 
-  <div class="flex h-full">
+  <% if (typeof originalUser !== 'undefined' && originalUser) { %>
+  <div class="fixed top-0 left-0 right-0 z-50 bg-purple-600 text-white text-center py-1.5 text-xs font-medium shadow-md">
+    👤 Impersonating <strong><%= user.name %></strong> (<%= user.role %>) &mdash;
+    <a href="/stop-impersonate" class="underline hover:text-purple-200">Stop Impersonating</a>
+  </div>
+  <% } %>
+
+  <div class="flex h-full <%= (typeof originalUser !== 'undefined' && originalUser) ? 'pt-8' : '' %>">
     <!-- Sidebar — fixed, does not scroll with main -->
     <aside id="sidebar" class="fixed inset-y-0 left-0 z-30 w-60 flex flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transform -translate-x-full lg:translate-x-0 transition-transform duration-200">
       <!-- Logo -->

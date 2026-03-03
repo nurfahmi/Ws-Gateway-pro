@@ -1,6 +1,6 @@
 import prisma from '../lib/prisma.js';
 import crypto from 'crypto';
-import { createSession, getSession, getAllSessions, deleteSession as deleteWASession, updateWebhook } from '../whatsapp.js';
+import { createSession, getSession, getAllSessions, deleteSession as deleteWASession, updateWebhook, getGroups } from '../whatsapp.js';
 
 /**
  * Get allowed user IDs for device access based on role:
@@ -79,17 +79,39 @@ export const index = async (req, res) => {
   const totalPages = Math.ceil(total / limit);
   const paginatedDevices = allDevices.slice((page - 1) * limit, page * limit);
 
+  // For managers: fetch their staff list for the assign dropdown
+  let staffList = [];
+  if (user.role === 'manager') {
+    staffList = await prisma.user.findMany({
+      where: { managerId: user.id },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   res.render('devices/index', {
     title: 'Device Management',
     devices: paginatedDevices,
     statusFilter,
     pagination: { page, totalPages, total },
+    staffList,
   });
 };
 
 export const createPost = async (req, res) => {
-  const { sessionId, name } = req.body;
+  const { sessionId, name, assignTo } = req.body;
   if (!sessionId) return res.redirect('/devices');
+
+  let ownerId = req.session.user.id;
+
+  // If manager assigns to a staff member, verify ownership
+  if (assignTo && req.session.user.role === 'manager') {
+    const staffId = parseInt(assignTo);
+    const staff = await prisma.user.findFirst({
+      where: { id: staffId, managerId: req.session.user.id },
+    });
+    if (staff) ownerId = staffId;
+  }
 
   try {
     const device = await prisma.device.create({
@@ -97,7 +119,7 @@ export const createPost = async (req, res) => {
         sessionId,
         name: name || sessionId,
         apiKey: crypto.randomUUID(),
-        createdBy: req.session.user.id,
+        createdBy: ownerId,
       },
     });
     await createSession(sessionId);
@@ -217,5 +239,22 @@ export const getStatus = async (req, res) => {
     });
   } catch (err) {
     res.json({ error: err.message });
+  }
+};
+
+// Get all groups for a device (JSON endpoint for modal)
+export const getDeviceGroups = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const device = await prisma.device.findUnique({ where: { id: parseInt(id) } });
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+    const allowedIds = await getAllowedUserIds(req.session.user);
+    if (allowedIds && !allowedIds.includes(device.createdBy)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const groups = await getGroups(device.sessionId);
+    res.json({ groups });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };

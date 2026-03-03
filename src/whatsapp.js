@@ -814,6 +814,20 @@ const getMediaType = (message) => {
     return null;
 };
 
+// Get all groups for a session
+const getGroups = async (sessionId) => {
+    const session = sessions.get(sessionId);
+    if (!session || !session.sock || session.status !== 'connected') {
+        throw new Error('Session not connected');
+    }
+    const groups = await session.sock.groupFetchAllParticipating();
+    return Object.values(groups).map(g => ({
+        id: g.id,
+        subject: g.subject || '',
+        size: g.participants?.length || 0,
+    }));
+};
+
 export { 
     createSession, 
     getSession, 
@@ -834,5 +848,6 @@ export {
     markAsRead,
     sendPresence,
     downloadMedia,
-    getMediaType
+    getMediaType,
+    getGroups
 };

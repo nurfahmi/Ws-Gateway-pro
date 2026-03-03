@@ -1,11 +1,20 @@
 <% if (user.role === 'superadmin' || user.role === 'manager') { %>
 <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 mb-5">
   <h3 class="text-sm font-semibold mb-3">Add New Device</h3>
-  <form method="POST" action="/devices/create" class="flex flex-wrap gap-3">
+  <form method="POST" action="/devices/create" class="flex flex-wrap gap-3 items-end">
     <input type="text" name="sessionId" placeholder="Session ID (e.g. device-1)" required
       class="flex-1 min-w-[200px] px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition">
     <input type="text" name="name" placeholder="Device Name (optional)"
       class="flex-1 min-w-[200px] px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+    <% if (user.role === 'manager' && staffList && staffList.length > 0) { %>
+      <select name="assignTo"
+        class="min-w-[160px] px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+        <option value="">Assign to: Myself</option>
+        <% staffList.forEach(s => { %>
+          <option value="<%= s.id %>"><%= s.name %></option>
+        <% }) %>
+      </select>
+    <% } %>
     <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow-sm">Add Device</button>
   </form>
 </div>
@@ -103,6 +112,9 @@
           <td class="px-5 py-3 text-right">
             <% if ((user.role === 'superadmin' || user.role === 'manager') && d.id) { %>
               <div class="flex items-center justify-end gap-1">
+                <% if (d.liveStatus === 'connected') { %>
+                  <button onclick="openGroupsModal(<%= d.id %>, '<%= (d.name || d.sessionId).replace(/'/g, "\\'") %>')" class="px-2.5 py-1 text-xs font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 rounded transition">Groups</button>
+                <% } %>
                 <form method="POST" action="/devices/<%= d.id %>/restart" class="inline">
                   <button type="submit" class="px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded transition">Restart</button>
                 </form>
@@ -180,6 +192,27 @@
   </div>
 </div>
 
+<!-- Groups Modal -->
+<div id="groupsModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50" onclick="if(event.target===this)closeGroups()">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-xl border border-gray-200 dark:border-gray-800 max-w-lg w-full mx-4 max-h-[80vh] flex flex-col">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-sm font-semibold">Groups — <span id="groupsDeviceName"></span></h3>
+      <button onclick="closeGroups()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">&times;</button>
+    </div>
+    <div id="groupsLoading" class="flex flex-col items-center gap-3 py-8">
+      <div class="w-8 h-8 border-3 border-gray-200 dark:border-gray-700 border-t-purple-500 rounded-full animate-spin"></div>
+      <p class="text-xs text-gray-500">Fetching groups...</p>
+    </div>
+    <div id="groupsError" class="hidden text-center py-8">
+      <p class="text-sm text-red-500" id="groupsErrorMsg"></p>
+    </div>
+    <div id="groupsList" class="hidden overflow-y-auto flex-1">
+      <div class="text-xs text-gray-400 mb-2"><span id="groupsCount">0</span> groups</div>
+      <div id="groupsBody" class="space-y-2"></div>
+    </div>
+  </div>
+</div>
+
 <script>
   let qrPollInterval = null;
 
@@ -243,6 +276,57 @@
   function closeWebhook() {
     document.getElementById('webhookModal').classList.add('hidden');
     document.getElementById('webhookModal').classList.remove('flex');
+  }
+
+  async function openGroupsModal(deviceId, deviceName) {
+    document.getElementById('groupsDeviceName').textContent = deviceName;
+    document.getElementById('groupsLoading').classList.remove('hidden');
+    document.getElementById('groupsError').classList.add('hidden');
+    document.getElementById('groupsList').classList.add('hidden');
+    document.getElementById('groupsModal').classList.remove('hidden');
+    document.getElementById('groupsModal').classList.add('flex');
+    try {
+      const res = await fetch('/devices/' + deviceId + '/groups');
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      const groups = data.groups || [];
+      document.getElementById('groupsCount').textContent = groups.length;
+      const body = document.getElementById('groupsBody');
+      if (groups.length === 0) {
+        body.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">No groups found</p>';
+      } else {
+        body.innerHTML = groups.map(g => `
+          <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium truncate">${escapeHtml(g.subject)}</p>
+              <p class="text-[11px] text-gray-500 dark:text-gray-400 font-mono">${g.id}</p>
+            </div>
+            <div class="flex items-center gap-2 ml-3 shrink-0">
+              <span class="text-[10px] text-gray-400">${g.size} members</span>
+              <button onclick="copyGroupId('${g.id}')" class="text-gray-400 hover:text-purple-500 transition" title="Copy Group JID">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+              </button>
+            </div>
+          </div>
+        `).join('');
+      }
+      document.getElementById('groupsLoading').classList.add('hidden');
+      document.getElementById('groupsList').classList.remove('hidden');
+    } catch (err) {
+      document.getElementById('groupsLoading').classList.add('hidden');
+      document.getElementById('groupsErrorMsg').textContent = err.message;
+      document.getElementById('groupsError').classList.remove('hidden');
+    }
+  }
+  function closeGroups() {
+    document.getElementById('groupsModal').classList.add('hidden');
+    document.getElementById('groupsModal').classList.remove('flex');
+  }
+  function copyGroupId(id) {
+    navigator.clipboard.writeText(id).then(() => alert('Group JID copied!'));
+  }
+  function escapeHtml(str) {
+    const d = document.createElement('div'); d.textContent = str; return d.innerHTML;
   }
 
   // Auto-open QR modal for newly created device

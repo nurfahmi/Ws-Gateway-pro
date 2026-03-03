@@ -50,6 +50,11 @@
             <div class="flex items-center justify-end gap-2">
               <a href="/users/<%= u.id %>/edit" class="px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded transition">Edit</a>
               <% if (u.id !== user.id) { %>
+                <% if (user.role === 'superadmin' || (typeof originalUser !== 'undefined' && originalUser && originalUser.role === 'superadmin')) { %>
+                  <form method="POST" action="/users/<%= u.id %>/impersonate" class="inline" onsubmit="return confirm('Impersonate <%= u.name %>?')">
+                    <button type="submit" class="px-2.5 py-1 text-xs font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 rounded transition">Impersonate</button>
+                  </form>
+                <% } %>
                 <form method="POST" action="/users/<%= u.id %>/delete" class="inline" onsubmit="return confirm('Delete this user?')">
                   <button type="submit" class="px-2.5 py-1 text-xs font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition">Delete</button>
                 </form>

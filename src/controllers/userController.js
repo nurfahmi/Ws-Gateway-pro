@@ -153,3 +153,35 @@ export const deleteUser = async (req, res) => {
   await prisma.user.delete({ where: { id } });
   res.redirect('/users');
 };
+
+// Impersonate a user (superadmin only)
+export const impersonate = async (req, res) => {
+  if (req.session.user.role !== 'superadmin') {
+    return res.status(403).render('403', { title: 'Forbidden' });
+  }
+  const targetId = parseInt(req.params.id);
+  if (targetId === req.session.user.id) return res.redirect('/users');
+
+  const target = await prisma.user.findUnique({ where: { id: targetId } });
+  if (!target) return res.redirect('/users');
+
+  // Store original superadmin session
+  req.session.originalUser = req.session.user;
+  // Switch to target user
+  req.session.user = {
+    id: target.id,
+    name: target.name,
+    username: target.username,
+    role: target.role,
+  };
+  res.redirect('/dashboard');
+};
+
+// Stop impersonating
+export const stopImpersonate = (req, res) => {
+  if (req.session.originalUser) {
+    req.session.user = req.session.originalUser;
+    delete req.session.originalUser;
+  }
+  res.redirect('/users');
+};

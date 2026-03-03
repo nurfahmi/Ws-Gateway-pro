@@ -20,7 +20,8 @@ import {
   updateWebhook, getGlobalWebhook, setGlobalWebhook,
   getMessageStatus, getSessionMessages, STATUS_MAP,
   getProfilePicture, getContact, getAllContacts,
-  markAsRead, sendPresence, downloadMedia
+  markAsRead, sendPresence, downloadMedia,
+  getGroups
 } from './whatsapp.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -246,6 +247,19 @@ app.get('/api/sessions/:id/contacts/:jid', apiKeyAuth, async (req, res) => {
   res.json(contact ? { ...contact, profilePicUrl } : { jid: req.params.jid, profilePicUrl });
 });
 
+app.get('/api/sessions/:id/groups', apiKeyAuth, async (req, res) => {
+  const session = getSession(req.params.id);
+  if (!session || session.status !== 'connected') {
+    return res.status(400).json({ error: 'Session not connected' });
+  }
+  try {
+    const groups = await getGroups(req.params.id);
+    res.json({ sessionId: req.params.id, count: groups.length, groups });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch groups', details: error.message });
+  }
+});
+
 // ===== Shorthand API Routes (no session ID needed, resolved from API key) =====
 app.post('/api/send-message', apiKeyAuth, async (req, res) => {
   const id = req.params.id; // auto-resolved by middleware
@@ -357,6 +371,20 @@ app.post('/api/presence', apiKeyAuth, async (req, res) => {
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: 'Failed to send presence', details: error.message });
+  }
+});
+
+app.get('/api/groups', apiKeyAuth, async (req, res) => {
+  const id = req.params.id;
+  const session = getSession(id);
+  if (!session || session.status !== 'connected') {
+    return res.status(400).json({ error: 'Session not connected' });
+  }
+  try {
+    const groups = await getGroups(id);
+    res.json({ sessionId: id, count: groups.length, groups });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch groups', details: error.message });
   }
 });
 
