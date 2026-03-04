@@ -2,6 +2,7 @@ import prisma from '../lib/prisma.js';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { setGlobalWebhook, getGlobalWebhook } from '../whatsapp.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,6 +18,8 @@ export async function getSettings() {
   const rows = await prisma.setting.findMany();
   const settings = {};
   rows.forEach(r => { settings[r.key] = r.value; });
+  // Include live webhook URL
+  settings.webhookUrl = getGlobalWebhook() || '';
   return settings;
 }
 
@@ -30,7 +33,7 @@ export const index = async (req, res) => {
 };
 
 export const update = async (req, res) => {
-  const { siteName, baseUrl } = req.body;
+  const { siteName, baseUrl, webhookUrl } = req.body;
 
   const upserts = [];
   if (siteName !== undefined) {
@@ -40,6 +43,11 @@ export const update = async (req, res) => {
     upserts.push(prisma.setting.upsert({ where: { key: 'baseUrl' }, update: { value: baseUrl }, create: { key: 'baseUrl', value: baseUrl } }));
   }
   await Promise.all(upserts);
+
+  // Save webhook URL via whatsapp module
+  if (webhookUrl !== undefined) {
+    await setGlobalWebhook(webhookUrl.trim() || null);
+  }
 
   res.redirect('/settings?success=1');
 };

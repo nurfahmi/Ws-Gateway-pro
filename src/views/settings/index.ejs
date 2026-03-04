@@ -21,6 +21,12 @@
           class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition">
         <p class="text-xs text-gray-400 mt-1">Production URL used in API documentation (e.g. https://wa.yourdomain.com)</p>
       </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Global Webhook URL</label>
+        <input type="text" name="webhookUrl" value="<%= settings.webhookUrl || '' %>" placeholder="https://your-server.com/webhook"
+          class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+        <p class="text-xs text-gray-400 mt-1">Receives disconnect events (connection.close) and message events for all devices</p>
+      </div>
       <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow-sm">Save</button>
     </form>
   </div>
