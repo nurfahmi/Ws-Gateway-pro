@@ -89,12 +89,22 @@ export const index = async (req, res) => {
     });
   }
 
+  // For superadmin: fetch all users for assign dropdown
+  let userList = [];
+  if (isSuperadmin) {
+    userList = await prisma.user.findMany({
+      select: { id: true, name: true, role: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   res.render('devices/index', {
     title: 'Device Management',
     devices: paginatedDevices,
     statusFilter,
     pagination: { page, totalPages, total },
     staffList,
+    userList,
   });
 };
 
@@ -119,6 +129,13 @@ export const createPost = async (req, res) => {
       where: { id: staffId, managerId: req.session.user.id },
     });
     if (staff) ownerId = staffId;
+  }
+
+  // Superadmin can assign to any user
+  if (assignTo && req.session.user.role === 'superadmin') {
+    const targetId = parseInt(assignTo);
+    const target = await prisma.user.findUnique({ where: { id: targetId } });
+    if (target) ownerId = targetId;
   }
 
   try {
@@ -173,6 +190,55 @@ export const restartDevice = async (req, res) => {
       }
       await createSession(device.sessionId);
     }
+    res.redirect('/devices');
+  } catch (err) {
+    console.error(err);
+    res.redirect('/devices');
+  }
+};
+
+// Logout device: disconnect WhatsApp session, keep device record and messages
+export const logoutDevice = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const device = await prisma.device.findUnique({ where: { id: parseInt(id) } });
+    if (!device) return res.redirect('/devices');
+
+    const allowedIds = await getAllowedUserIds(req.session.user);
+    if (allowedIds && !allowedIds.includes(device.createdBy)) {
+      return res.status(403).render('403', { title: 'Forbidden' });
+    }
+
+    // Logout from WhatsApp and clear session keys
+    await deleteWASession(device.sessionId);
+    await prisma.device.update({ where: { id: parseInt(id) }, data: { phoneNumber: null, status: 'disconnected' } });
+
+    res.redirect('/devices');
+  } catch (err) {
+    console.error(err);
+    res.redirect('/devices');
+  }
+};
+
+// Reset device: clear session data + messages, keep device record, start fresh
+export const resetDevice = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const device = await prisma.device.findUnique({ where: { id: parseInt(id) } });
+    if (!device) return res.redirect('/devices');
+
+    const allowedIds = await getAllowedUserIds(req.session.user);
+    if (allowedIds && !allowedIds.includes(device.createdBy)) {
+      return res.status(403).render('403', { title: 'Forbidden' });
+    }
+
+    // Clear session (logout + delete auth keys)
+    await deleteWASession(device.sessionId);
+    // Reset phone number
+    await prisma.device.update({ where: { id: parseInt(id) }, data: { phoneNumber: null, status: 'scan_qr' } });
+    // Start fresh session
+    await createSession(device.sessionId);
+
     res.redirect('/devices');
   } catch (err) {
     console.error(err);
@@ -237,6 +303,25 @@ export const updateName = async (req, res) => {
     await prisma.device.update({
       where: { id: parseInt(id) },
       data: { name: name || device.sessionId },
+    });
+    res.redirect('/devices');
+  } catch (err) {
+    console.error(err);
+    res.redirect('/devices');
+  }
+};
+
+// Assign device to a user (superadmin only)
+export const assignDevice = async (req, res) => {
+  const { id } = req.params;
+  const { assignTo } = req.body;
+  try {
+    const userId = parseInt(assignTo);
+    const userExists = await prisma.user.findUnique({ where: { id: userId } });
+    if (!userExists) return res.redirect('/devices?error=User+not+found');
+    await prisma.device.update({
+      where: { id: parseInt(id) },
+      data: { createdBy: userId },
     });
     res.redirect('/devices');
   } catch (err) {

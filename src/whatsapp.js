@@ -664,11 +664,15 @@ const deleteSession = async (sessionId) => {
     contactStore.delete(sessionId);
 };
 
-// Restore sessions from DB on startup — only restore devices that exist in DB
+// Restore sessions from DB on startup — only restore devices that were previously active
 const restoreSessions = async () => {
     try {
-        // Only restore sessions that have a matching device record
-        const devices = await prisma.device.findMany({ select: { sessionId: true } });
+        // Only restore sessions that were connected or reconnecting (not inactive/qr_timeout/failed)
+        const devices = await prisma.device.findMany({
+          where: { status: { in: ['connected', 'reconnecting', 'connecting', 'scan_qr'] } },
+          select: { sessionId: true },
+        });
+        console.log(`Restoring ${devices.length} active sessions...`);
         for (const device of devices) {
           console.log(`Restoring session: ${device.sessionId}`);
           await createSession(device.sessionId);

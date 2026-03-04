@@ -11,13 +11,27 @@
     <input type="text" name="name" placeholder="Device Name (optional)"
       class="flex-1 min-w-[200px] px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition">
     <% if (user.role === 'manager' && staffList && staffList.length > 0) { %>
-      <select name="assignTo"
-        class="min-w-[160px] px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition">
-        <option value="">Assign to: Myself</option>
-        <% staffList.forEach(s => { %>
-          <option value="<%= s.id %>"><%= s.name %></option>
-        <% }) %>
-      </select>
+      <div class="searchable-select" data-name="assignTo">
+        <input type="text" placeholder="Assign to: Myself" class="ss-input min-w-[160px] px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+        <input type="hidden" name="assignTo" value="">
+        <div class="ss-dropdown hidden">
+          <div class="ss-option" data-value="">Myself</div>
+          <% staffList.forEach(s => { %>
+            <div class="ss-option" data-value="<%= s.id %>"><%= s.name %></div>
+          <% }) %>
+        </div>
+      </div>
+    <% } else if (user.role === 'superadmin' && userList && userList.length > 0) { %>
+      <div class="searchable-select" data-name="assignTo">
+        <input type="text" placeholder="Assign to: Myself" class="ss-input min-w-[160px] px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+        <input type="hidden" name="assignTo" value="">
+        <div class="ss-dropdown hidden">
+          <div class="ss-option" data-value="">Myself</div>
+          <% userList.forEach(u => { %>
+            <div class="ss-option" data-value="<%= u.id %>"><%= u.name %> (<%= u.role %>)</div>
+          <% }) %>
+        </div>
+      </div>
     <% } %>
     <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow-sm">Add Device</button>
   </form>
@@ -125,9 +139,20 @@
                   <button onclick="openGroupsModal(<%= d.id %>, '<%= (d.name || d.sessionId).replace(/'/g, "\\'") %>')" class="px-2.5 py-1 text-xs font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 rounded transition">Groups</button>
                 <% } %>
                 <form method="POST" action="/devices/<%= d.id %>/restart" class="inline">
-                  <button type="submit" class="px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded transition">Restart</button>
+                  <button type="submit" class="px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded transition">Reconnect</button>
+                </form>
+                <% if (d.liveStatus === 'connected') { %>
+                  <form method="POST" action="/devices/<%= d.id %>/logout" class="inline" onsubmit="return confirm('Logout this WhatsApp session? You will need to scan QR again.')">
+                    <button type="submit" class="px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition">Logout</button>
+                  </form>
+                <% } %>
+                <form method="POST" action="/devices/<%= d.id %>/reset" class="inline" onsubmit="return confirm('Reset this device? Session credentials will be cleared. You will need to scan QR again.')">
+                  <button type="submit" class="px-2.5 py-1 text-xs font-medium text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-500/10 rounded transition">Reset</button>
                 </form>
                 <% if (user.role === 'superadmin' || user.role === 'manager') { %>
+                  <% if (user.role === 'superadmin') { %>
+                    <button onclick="openAssignModal(<%= d.id %>, '<%= d.creator ? d.creator.name : '' %>')" class="px-2.5 py-1 text-xs font-medium text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-500/10 rounded transition">Assign</button>
+                  <% } %>
                   <button onclick="openWebhookModal(<%= d.id %>, '<%= (d.webhookUrl || '').replace(/'/g, "\\'") %>')" class="px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition">Webhook</button>
                   <form method="POST" action="/devices/<%= d.id %>/regenerate-key" class="inline" onsubmit="return confirm('Regenerate API key? The old key will stop working.')">
                     <button type="submit" class="px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded transition">Regen Key</button>
@@ -149,6 +174,12 @@
       <% }) %>
     </tbody>
   </table>
+</div>
+
+<div class="mt-3 px-1 text-[11px] text-gray-400 dark:text-gray-500 flex flex-wrap gap-x-4 gap-y-1">
+  <span><strong class="text-blue-500">Reconnect</strong> — restart existing session (keeps credentials)</span>
+  <span><strong class="text-gray-500">Logout</strong> — disconnect WhatsApp, keeps messages, need new QR</span>
+  <span><strong class="text-orange-500">Reset</strong> — wipe session credentials, keeps messages, new QR needed</span>
 </div>
 
 <!-- Pagination -->
@@ -202,6 +233,33 @@
     </form>
   </div>
 </div>
+
+<% if (user.role === 'superadmin') { %>
+<!-- Assign Device Modal -->
+<div id="assignModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50" onclick="if(event.target===this)closeAssign()">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-xl border border-gray-200 dark:border-gray-800 max-w-md w-full mx-4">
+    <h3 class="text-sm font-semibold mb-4">Assign Device</h3>
+    <form id="assignForm" method="POST" class="space-y-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Assign to</label>
+        <div class="searchable-select" data-name="assignTo">
+          <input type="text" placeholder="Search user..." class="ss-input w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+          <input type="hidden" name="assignTo" value="">
+          <div class="ss-dropdown hidden">
+            <% userList.forEach(u => { %>
+              <div class="ss-option" data-value="<%= u.id %>"><%= u.name %> (<%= u.role %>)</div>
+            <% }) %>
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button type="submit" class="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">Assign</button>
+        <button type="button" onclick="closeAssign()" class="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+<% } %>
 
 <!-- Groups Modal -->
 <div id="groupsModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50" onclick="if(event.target===this)closeGroups()">
@@ -303,6 +361,15 @@
     document.getElementById('webhookModal').classList.add('hidden');
     document.getElementById('webhookModal').classList.remove('flex');
   }
+  function openAssignModal(id, currentOwner) {
+    document.getElementById('assignForm').action = '/devices/' + id + '/assign';
+    document.getElementById('assignModal').classList.remove('hidden');
+    document.getElementById('assignModal').classList.add('flex');
+  }
+  function closeAssign() {
+    document.getElementById('assignModal').classList.add('hidden');
+    document.getElementById('assignModal').classList.remove('flex');
+  }
 
   let _cachedGroups = [];
 
@@ -403,3 +470,50 @@
   }, 3000);
 </script>
 
+<style>
+.searchable-select { position: relative; }
+.ss-dropdown { position: absolute; top: 100%; left: 0; right: 0; z-index: 50; max-height: 200px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 0.5rem; margin-top: 2px; }
+.dark .ss-dropdown { border-color: #374151; }
+.ss-dropdown { background: white; }
+.dark .ss-dropdown { background: #1f2937; }
+.ss-option { padding: 6px 12px; font-size: 13px; cursor: pointer; }
+.ss-option:hover, .ss-option.active { background: #f0fdf4; }
+.dark .ss-option:hover, .dark .ss-option.active { background: #064e3b30; }
+.ss-option.hidden { display: none; }
+</style>
+
+<script>
+document.querySelectorAll('.searchable-select').forEach(wrap => {
+  const input = wrap.querySelector('.ss-input');
+  const hidden = wrap.querySelector('input[type=hidden]');
+  const dropdown = wrap.querySelector('.ss-dropdown');
+  const options = wrap.querySelectorAll('.ss-option');
+
+  input.addEventListener('focus', () => {
+    dropdown.classList.remove('hidden');
+    filterOptions();
+  });
+
+  input.addEventListener('input', filterOptions);
+
+  function filterOptions() {
+    const q = input.value.toLowerCase();
+    options.forEach(opt => {
+      opt.classList.toggle('hidden', q && !opt.textContent.toLowerCase().includes(q));
+    });
+  }
+
+  options.forEach(opt => {
+    opt.addEventListener('click', () => {
+      hidden.value = opt.dataset.value;
+      input.value = opt.dataset.value ? opt.textContent : '';
+      input.placeholder = opt.textContent;
+      dropdown.classList.add('hidden');
+    });
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!wrap.contains(e.target)) dropdown.classList.add('hidden');
+  });
+});
+</script>
