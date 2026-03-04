@@ -47,15 +47,16 @@ router.post('/users/create', requireAuth, requireRole('superadmin', 'manager'), 
 router.get('/users/:id/edit', requireAuth, requireRole('superadmin', 'manager'), userCtrl.editPage);
 router.post('/users/:id/edit', requireAuth, requireRole('superadmin', 'manager'), userCtrl.editPost);
 router.post('/users/:id/delete', requireAuth, requireRole('superadmin', 'manager'), userCtrl.deleteUser);
-router.post('/users/:id/impersonate', requireAuth, requireRole('superadmin'), userCtrl.impersonate);
+router.post('/users/:id/impersonate', requireAuth, requireRole('superadmin', 'manager'), userCtrl.impersonate);
 router.get('/stop-impersonate', requireAuth, userCtrl.stopImpersonate);
 
 // Devices
 router.get('/devices', requireAuth, deviceCtrl.index);
-router.post('/devices/create', requireAuth, requireRole('superadmin', 'manager'), deviceCtrl.createPost);
+router.post('/devices/create', requireAuth, deviceCtrl.createPost);
 router.post('/devices/:id/delete', requireAuth, requireRole('superadmin', 'manager'), deviceCtrl.deleteDevice);
 router.post('/devices/:id/restart', requireAuth, deviceCtrl.restartDevice);
 router.post('/devices/:id/webhook', requireAuth, requireRole('superadmin', 'manager'), deviceCtrl.updateWebhookUrl);
+router.post('/devices/:id/name', requireAuth, requireRole('superadmin', 'manager'), deviceCtrl.updateName);
 router.post('/devices/:id/regenerate-key', requireAuth, requireRole('superadmin', 'manager'), deviceCtrl.regenerateApiKey);
 router.post('/devices/session/:sessionId/delete', requireAuth, requireRole('superadmin'), deviceCtrl.deleteBySessionId);
 router.get('/devices/:id/status', requireAuth, deviceCtrl.getStatus);

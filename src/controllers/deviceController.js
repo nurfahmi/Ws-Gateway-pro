@@ -104,6 +104,14 @@ export const createPost = async (req, res) => {
 
   let ownerId = req.session.user.id;
 
+  // Users (staff) can only have max 2 devices
+  if (req.session.user.role === 'user') {
+    const count = await prisma.device.count({ where: { createdBy: ownerId } });
+    if (count >= 2) {
+      return res.redirect('/devices?error=Maximum+2+devices+allowed');
+    }
+  }
+
   // If manager assigns to a staff member, verify ownership
   if (assignTo && req.session.user.role === 'manager') {
     const staffId = parseInt(assignTo);
@@ -206,6 +214,29 @@ export const regenerateApiKey = async (req, res) => {
     await prisma.device.update({
       where: { id: parseInt(id) },
       data: { apiKey: crypto.randomUUID() },
+    });
+    res.redirect('/devices');
+  } catch (err) {
+    console.error(err);
+    res.redirect('/devices');
+  }
+};
+
+// Update device name (superadmin/manager only)
+export const updateName = async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+  try {
+    const device = await prisma.device.findUnique({ where: { id: parseInt(id) } });
+    if (device) {
+      const allowedIds = await getAllowedUserIds(req.session.user);
+      if (allowedIds && !allowedIds.includes(device.createdBy)) {
+        return res.status(403).render('403', { title: 'Forbidden' });
+      }
+    }
+    await prisma.device.update({
+      where: { id: parseInt(id) },
+      data: { name: name || device.sessionId },
     });
     res.redirect('/devices');
   } catch (err) {

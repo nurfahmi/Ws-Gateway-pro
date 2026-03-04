@@ -9,6 +9,7 @@
   let newMsgCount = 0, ctxTarget = null;
   const unreadCounts = {}; // track unread per chat key
   const devices = window.__devices;
+  const allowedSessionIds = new Set(devices.map(d => d.sessionId));
 
   // ─── Utilities ───
   const deviceColors = ['#25d366','#6366f1','#e11d48','#f59e0b','#06b6d4','#7c3aed','#128c7e','#075e54','#34b7f1','#00a884'];
@@ -326,6 +327,7 @@
     const chat=allChats.find(c=>c.remoteJid===activeJid&&c.sessionId===activeDevice);
     const name=chat?chat.name:activeJid?.split('@')[0]||'Unknown';
     const isGroup=activeJid?.includes('@g.us');
+    const phone=chat?.contactPhone||null;
     const color=getAvatarColor(activeJid);
     const conn=isConnected(activeDevice);
     const body=infoPanel.querySelector('.wa-info-body');
@@ -333,11 +335,11 @@
     body.innerHTML=`
       <div class="wa-info-avatar" style="background:${color}">${isGroup?groupIcon(64):getInitials(name)}</div>
       <div class="wa-info-name">${esc(name)}</div>
-      <div class="wa-info-jid">${esc(isGroup ? activeJid : (activeJid?.includes('@s.whatsapp.net') ? activeJid?.split('@')[0] : activeJid))}</div>
+      <div class="wa-info-jid">${esc(phone || (isGroup ? activeJid : activeJid))}</div>
       <div class="wa-info-section">
         <h4>About</h4>
         <div class="wa-info-row">${isGroup?'Group chat':'Personal chat'}</div>
-        ${!isGroup && activeJid?.includes('@s.whatsapp.net')?`<div class="wa-info-row"><span>Phone:</span> ${esc(activeJid?.split('@')[0] || '')}</div>`:''}
+        ${!isGroup && phone?`<div class="wa-info-row"><span>Phone:</span> ${esc(phone)}</div>`:''}
         <div class="wa-info-row"><span>Device:</span> ${esc(chat?.deviceName||activeDevice)}</div>
         <div class="wa-info-row"><span>Status:</span> ${conn?'🟢 Online':'🔴 Offline'}</div>
         <div class="wa-info-row"><span>Total Messages:</span> ${chat?.totalMessages||0}</div>
@@ -388,6 +390,9 @@
   }
 
   socket.on('new-message', msg => {
+    // Skip if this device is not in user's allowed list
+    if (!allowedSessionIds.has(msg.sessionId)) return;
+
     // Skip if device filter is set and this message is from a different device
     const filterDev = deviceFilter.value;
     if(filterDev && msg.sessionId !== filterDev) return;

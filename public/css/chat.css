@@ -67,7 +67,7 @@
 .wa-bubble.out { background: var(--wa-bubble-out); border-top-right-radius: 0; }
 .wa-bubble.in { background: var(--wa-bubble-in); border-top-left-radius: 0; }
 .wa-bubble:hover .wa-bubble-menu-btn { opacity: 1; }
-.wa-bubble-content { padding-right: 48px; min-width: 80px; }
+.wa-bubble-content { padding-right: 48px; min-width: 80px; white-space: pre-wrap; word-break: break-word; }
 .wa-bubble-time { font-size: 11px; color: var(--wa-text-secondary); white-space: nowrap; float: right; margin-top: 4px; margin-left: 8px; }
 .wa-bubble-status { display: inline-flex; align-items: center; vertical-align: middle; margin-left: 3px; }
 .wa-bubble-status svg { display: inline-block; vertical-align: middle; }

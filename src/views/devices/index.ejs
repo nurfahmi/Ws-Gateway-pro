@@ -1,6 +1,10 @@
-<% if (user.role === 'superadmin' || user.role === 'manager') { %>
 <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 mb-5">
-  <h3 class="text-sm font-semibold mb-3">Add New Device</h3>
+  <div class="flex items-center gap-2 mb-3">
+    <h3 class="text-sm font-semibold">Add New Device</h3>
+    <% if (user.role === 'user') { %>
+      <span class="text-[11px] text-gray-400">(max 2 devices)</span>
+    <% } %>
+  </div>
   <form method="POST" action="/devices/create" class="flex flex-wrap gap-3 items-end">
     <input type="text" name="sessionId" placeholder="Session ID (e.g. device-1)" required
       class="flex-1 min-w-[200px] px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition">
@@ -18,7 +22,6 @@
     <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow-sm">Add Device</button>
   </form>
 </div>
-<% } %>
 
 <!-- Filters -->
 <div class="flex flex-wrap items-center gap-2 mb-5">
@@ -57,10 +60,16 @@
       <% devices.forEach(d => { %>
         <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors" id="device-<%= d.id || d.sessionId %>" data-session="<%= d.sessionId %>">
           <td class="px-5 py-3 font-medium">
-            <%= d.name || d.sessionId %>
-            <% if (!d.id) { %>
-              <span class="ml-1 text-[10px] text-amber-500 font-normal">(unregistered)</span>
-            <% } %>
+            <div class="flex items-center gap-1.5">
+              <span id="dname-<%= d.id %>"><%= d.name || d.sessionId %></span>
+              <% if (!d.id) { %>
+                <span class="text-[10px] text-amber-500 font-normal">(unregistered)</span>
+              <% } else if (user.role === 'superadmin' || user.role === 'manager') { %>
+                <button onclick="renameDevice(<%= d.id %>, '<%= (d.name || d.sessionId).replace(/'/g, "\\'") %>')" class="text-gray-400 hover:text-blue-500 transition" title="Rename">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                </button>
+              <% } %>
+            </div>
           </td>
           <td class="px-5 py-3 text-gray-500 dark:text-gray-400 font-mono text-xs"><%= d.sessionId %></td>
           <td class="px-5 py-3">
@@ -270,6 +279,19 @@
     navigator.clipboard.writeText(key).then(() => {
       alert('API Key copied!');
     });
+  }
+
+  function renameDevice(id, currentName) {
+    const newName = prompt('Enter new device name:', currentName);
+    if (newName === null || newName.trim() === '' || newName === currentName) return;
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/devices/' + id + '/name';
+    const input = document.createElement('input');
+    input.type = 'hidden'; input.name = 'name'; input.value = newName.trim();
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
   }
   function openWebhookModal(id, url) {
     document.getElementById('webhookForm').action = '/devices/' + id + '/webhook';

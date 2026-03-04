@@ -154,18 +154,24 @@ export const deleteUser = async (req, res) => {
   res.redirect('/users');
 };
 
-// Impersonate a user (superadmin only)
+// Impersonate a user (superadmin or manager for their staff)
 export const impersonate = async (req, res) => {
-  if (req.session.user.role !== 'superadmin') {
+  const currentUser = req.session.user;
+  if (currentUser.role !== 'superadmin' && currentUser.role !== 'manager') {
     return res.status(403).render('403', { title: 'Forbidden' });
   }
   const targetId = parseInt(req.params.id);
-  if (targetId === req.session.user.id) return res.redirect('/users');
+  if (targetId === currentUser.id) return res.redirect('/users');
 
   const target = await prisma.user.findUnique({ where: { id: targetId } });
   if (!target) return res.redirect('/users');
 
-  // Store original superadmin session
+  // Manager can only impersonate their own staff
+  if (currentUser.role === 'manager' && target.managerId !== currentUser.id) {
+    return res.status(403).render('403', { title: 'Forbidden' });
+  }
+
+  // Store original session
   req.session.originalUser = req.session.user;
   // Switch to target user
   req.session.user = {

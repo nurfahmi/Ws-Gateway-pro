@@ -169,6 +169,13 @@ export const getChats = async (req, res) => {
           if (contact?.name) return contact.name;
           return c.contactName || c.pushName || c.remoteJid?.split('@')[0] || 'Unknown';
         })(),
+        contactPhone: (() => {
+          if (c.remoteJid?.includes('@s.whatsapp.net')) return c.remoteJid.split('@')[0];
+          if (c.remoteJid?.includes('@g.us')) return null;
+          // Try to resolve LID to phone from contact store
+          const contact = getContact(c.sessionId, c.remoteJid);
+          return contact?.phone || null;
+        })(),
         deviceName: c.deviceName || c.sessionId,
         phoneNumber: c.phoneNumber || null,
         lastMessage: preview,

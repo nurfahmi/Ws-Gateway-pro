@@ -32,6 +32,7 @@ const contactStore = new Map();
 
 // Global webhook state
 let globalWebhookUrl = process.env.WEBHOOK_URL;
+const disconnectWebhookSent = new Set(); // prevent stacking disconnect webhooks
 
 // Load global webhook on start
 const initGlobalWebhook = async () => {
@@ -175,6 +176,31 @@ const createSession = async (sessionId, io) => {
             
             console.log(`[${sessionId}] Connection closed: statusCode=${statusCode}, error=${lastDisconnect?.error?.message || lastDisconnect?.error}, Reconnecting: ${shouldReconnect}`);
             
+            // Send disconnect webhook (once per disconnect, global only)
+            if (globalWebhookUrl && !disconnectWebhookSent.has(sessionId)) {
+                disconnectWebhookSent.add(sessionId);
+                try {
+                    const device = await prisma.device.findFirst({ where: { sessionId }, select: { name: true, phoneNumber: true } });
+                    const reasonMap = { 401: 'loggedOut', 408: 'timedOut', 428: 'connectionClosed', 440: 'connectionReplaced', 500: 'badSession', 515: 'restartRequired' };
+                    await fetch(globalWebhookUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            event: 'connection.close',
+                            sessionId,
+                            data: {
+                                deviceName: device?.name || sessionId,
+                                phoneNumber: device?.phoneNumber || null,
+                                reason: reasonMap[statusCode] || errorMessage || 'unknown',
+                                statusCode,
+                                willReconnect: shouldReconnect,
+                                timestamp: Date.now()
+                            }
+                        })
+                    });
+                } catch(e) {}
+            }
+
             if (isQrTimeout) {
                 // QR timeout - wait for user to explicitly request new QR
                 sessionData.status = 'qr_timeout';
@@ -209,6 +235,7 @@ const createSession = async (sessionId, io) => {
             sessionData.status = 'connected';
             sessionData.qr = null;
             retryCount.delete(sessionId);
+            disconnectWebhookSent.delete(sessionId); // reset so next disconnect fires webhook
             try { await prisma.device.updateMany({ where: { sessionId }, data: { status: 'connected' } }); } catch(e) {}
         }
 
@@ -229,14 +256,26 @@ const createSession = async (sessionId, io) => {
         
         for (const contact of contacts) {
             if (contact.id) {
-                sessionContacts.set(contact.id, {
+                const data = {
                     jid: contact.id,
                     name: contact.name || contact.notify || null,
                     notify: contact.notify || null,
                     verifiedName: contact.verifiedName || null,
                     imgUrl: contact.imgUrl || null,
                     status: contact.status || null
-                });
+                };
+                // Store phone number if JID is @s.whatsapp.net
+                if (contact.id.includes('@s.whatsapp.net')) {
+                    data.phone = contact.id.split('@')[0];
+                }
+                sessionContacts.set(contact.id, data);
+
+                // Cross-reference LID ↔ phone JID
+                if (contact.lid) {
+                    const lidJid = contact.lid.includes('@') ? contact.lid : `${contact.lid}@lid`;
+                    const existing = sessionContacts.get(lidJid) || {};
+                    sessionContacts.set(lidJid, { ...existing, ...data, jid: lidJid, phoneJid: contact.id, phone: contact.id.split('@')[0] });
+                }
             }
         }
         console.log(`[${sessionId}] Contacts updated: ${contacts.length} contacts`);
@@ -289,6 +328,25 @@ const createSession = async (sessionId, io) => {
                 if (!msg.message) continue;
 
                 const senderJid = msg.key?.remoteJid;
+                // Skip status broadcasts and empty JIDs
+                if (!senderJid || senderJid === 'status@broadcast') continue;
+
+                // Resolve LID to phone number if possible
+                if (senderJid.includes('@lid')) {
+                    if (!contactStore.has(sessionId)) contactStore.set(sessionId, new Map());
+                    const sc = contactStore.get(sessionId);
+                    const existing = sc.get(senderJid);
+                    if (!existing?.phone) {
+                        try {
+                            const pn = await sock.signalRepository.lidMapping.getPNForLID(senderJid);
+                            if (pn) {
+                                const phone = pn.split('@')[0];
+                                sc.set(senderJid, { ...(existing || {}), jid: senderJid, phoneJid: pn, phone });
+                            }
+                        } catch(e) {}
+                    }
+                }
+
                 let contactName = null;
 
                 if (senderJid && !msg.key?.fromMe) {

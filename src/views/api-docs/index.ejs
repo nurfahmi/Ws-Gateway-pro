@@ -227,6 +227,26 @@
       <p>• For documents: <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">message.documentMessage</code> with url, mimetype, fileName</p>
       <p>• Status updates: event = <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">messages.update</code> with status (server_ack, delivered, read)</p>
     </div>
+
+    <h4 class="text-xs font-semibold text-gray-500 uppercase mt-4 mb-2">Device Disconnected</h4>
+    <div class="relative">
+      <pre class="code-block">{
+  "event": "connection.close",
+  "sessionId": "device-1",
+  "data": {
+    "deviceName": "My Device",
+    "phoneNumber": "60123456789",
+    "reason": "connectionClosed",
+    "statusCode": 428,
+    "willReconnect": true,
+    "timestamp": 1709612345
+  }
+}</pre>
+    </div>
+    <div class="mt-2 text-xs text-gray-500 dark:text-gray-400 space-y-1">
+      <p>• Reasons: <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">loggedOut</code> <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">timedOut</code> <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">connectionClosed</code> <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">connectionReplaced</code> <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">badSession</code></p>
+      <p>• Sent once per disconnect (no stacking). Resets when device reconnects.</p>
+    </div>
   </div>
 
 </div>
