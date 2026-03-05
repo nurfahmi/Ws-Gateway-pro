@@ -187,7 +187,43 @@ export const getChats = async (req, res) => {
       };
     });
 
-    res.json(chats);
+    // Merge duplicate conversations (same contact appearing as @s.whatsapp.net and @lid on same device)
+    const chatMap = new Map();
+    chats.forEach(c => {
+      // Resolve to a canonical key: sessionId + phone number
+      const phone = c.contactPhone;
+      const key = phone ? `${c.sessionId}|${phone}` : `${c.sessionId}|${c.remoteJid}`;
+      
+      if (chatMap.has(key)) {
+        const existing = chatMap.get(key);
+        existing.totalMessages += c.totalMessages;
+        // Keep the most recent message
+        if (new Date(c.time) > new Date(existing.time)) {
+          existing.lastMessage = c.lastMessage;
+          existing.time = c.time;
+          existing.timestamp = c.timestamp;
+          existing.messageType = c.messageType;
+        }
+        // Prefer @s.whatsapp.net JID
+        if (c.remoteJid?.includes('@s.whatsapp.net')) {
+          existing.remoteJid = c.remoteJid;
+        }
+        // Prefer a real name
+        if (c.name && c.name !== c.remoteJid?.split('@')[0]) {
+          existing.name = c.name;
+        }
+        // Store merged JIDs for message fetching
+        if (!existing._mergedJids) existing._mergedJids = [existing.remoteJid];
+        existing._mergedJids.push(c.remoteJid);
+      } else {
+        chatMap.set(key, { ...c });
+      }
+    });
+
+    const mergedChats = Array.from(chatMap.values());
+    mergedChats.sort((a, b) => new Date(b.time) - new Date(a.time));
+
+    res.json(mergedChats);
   } catch (error) {
     console.error('getChats error:', error);
     res.status(500).json({ error: error.message });
@@ -209,7 +245,17 @@ export const getMessages = async (req, res) => {
   }
 
   try {
-    const where = { sessionId: device, remoteJid: jid };
+    // Also find the LID counterpart for this contact
+    const jids = [jid];
+    if (jid.includes('@s.whatsapp.net')) {
+      const contact = getContact(device, jid);
+      if (contact?.lid) jids.push(contact.lid);
+    } else if (jid.includes('@lid')) {
+      const contact = getContact(device, jid);
+      if (contact?.phone) jids.push(`${contact.phone}@s.whatsapp.net`);
+    }
+
+    const where = { sessionId: device, remoteJid: { in: jids } };
     const [rawMessages, total] = await Promise.all([
       prisma.message.findMany({
         where,
@@ -327,10 +373,20 @@ export const getNewMessages = async (req, res) => {
   }
 
   try {
+    // Also find the LID counterpart
+    const jids = [jid];
+    if (jid.includes('@s.whatsapp.net')) {
+      const contact = getContact(device, jid);
+      if (contact?.lid) jids.push(contact.lid);
+    } else if (jid.includes('@lid')) {
+      const contact = getContact(device, jid);
+      if (contact?.phone) jids.push(`${contact.phone}@s.whatsapp.net`);
+    }
+
     const rawMessages = await prisma.message.findMany({
       where: {
         sessionId: device,
-        remoteJid: jid,
+        remoteJid: { in: jids },
         id: { gt: parseInt(after) },
       },
       orderBy: { id: 'asc' },

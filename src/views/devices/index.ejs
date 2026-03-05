@@ -39,7 +39,9 @@
 
 <!-- Filters -->
 <div class="flex flex-wrap items-center gap-2 mb-5">
-  <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">Status:</span>
+  <input type="text" id="deviceSearch" placeholder="Search devices..."
+    class="px-3 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-500 transition w-48">
+  <span class="text-xs text-gray-500 dark:text-gray-400 font-medium ml-2">Status:</span>
   <% ['all','connected','connecting','reconnecting','scan_qr','failed','offline'].forEach(s => { %>
     <a href="/devices?status=<%= s %>"
       class="px-3 py-1.5 rounded-lg text-xs font-medium transition
@@ -514,6 +516,15 @@ document.querySelectorAll('.searchable-select').forEach(wrap => {
 
   document.addEventListener('click', (e) => {
     if (!wrap.contains(e.target)) dropdown.classList.add('hidden');
+  });
+});
+</script>
+
+<script>
+document.getElementById('deviceSearch')?.addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  document.querySelectorAll('tbody tr').forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
   });
 });
 </script>

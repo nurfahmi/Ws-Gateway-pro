@@ -1,6 +1,8 @@
 <div class="flex items-center justify-between mb-5">
-  <div>
+  <div class="flex items-center gap-3">
     <p class="text-sm text-gray-500 dark:text-gray-400"><%= pagination.total %> users total</p>
+    <input type="text" id="userSearch" placeholder="Search users..."
+      class="px-3 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-500 transition w-48">
   </div>
   <a href="/users/create" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm">+ Add User</a>
 </div>
@@ -82,3 +84,12 @@
     </div>
   </div>
 <% } %>
+
+<script>
+document.getElementById('userSearch')?.addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  document.querySelectorAll('tbody tr').forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+});
+</script>

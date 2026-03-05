@@ -399,7 +399,19 @@
 
     const preview = msg.fromMe ? `You: ${chatPreview(msg)}` : chatPreview(msg);
 
-    const chatIdx=allChats.findIndex(c=>c.sessionId===msg.sessionId&&c.remoteJid===msg.remoteJid);
+    // Find matching chat — try exact match first, then check merged (LID↔phone)
+    let chatIdx = allChats.findIndex(c=>c.sessionId===msg.sessionId&&c.remoteJid===msg.remoteJid);
+    if (chatIdx < 0) {
+      // Check if this is a LID/phone duplicate of an existing chat
+      const msgPhone = msg.remoteJid?.includes('@s.whatsapp.net') ? msg.remoteJid.split('@')[0] : null;
+      if (msgPhone) {
+        chatIdx = allChats.findIndex(c=>c.sessionId===msg.sessionId&&c.contactPhone===msgPhone);
+      } else {
+        // Incoming is @lid — check if any chat has this as contactPhone resolved
+        chatIdx = allChats.findIndex(c=>c.sessionId===msg.sessionId&&c._mergedJids&&c._mergedJids.includes(msg.remoteJid));
+      }
+    }
+
     if(chatIdx>=0){
       allChats[chatIdx].lastMessage=preview;
       allChats[chatIdx].time=msg.createdAt; allChats[chatIdx].totalMessages++;
@@ -425,8 +437,9 @@
       renderChats(allChats.filter(c=>c.name.toLowerCase().includes(q)||c.remoteJid.toLowerCase().includes(q)||(c.lastMessage||'').toLowerCase().includes(q)||(c.deviceName||'').toLowerCase().includes(q)||(c.phoneNumber||'').toLowerCase().includes(q)));
     }
 
-    // Append to active chat (skip own sent messages — already shown optimistically)
-    if(activeDevice===msg.sessionId&&activeJid===msg.remoteJid&&msg.id>lastMsgId){
+    // Append to active chat — also match merged JIDs
+    const isActiveChat = activeDevice===msg.sessionId && (activeJid===msg.remoteJid || (allChats[0]?._mergedJids?.includes(msg.remoteJid) && allChats[0]?.remoteJid===activeJid));
+    if(isActiveChat && msg.id>lastMsgId){
       lastMsgId=msg.id;
       if(msg.fromMe) return; // already added by optimistic UI
       const msgArea=$('msgArea'); if(!msgArea) return;
@@ -436,7 +449,7 @@
       else { newMsgCount++; const b=$('scrollBadge'); if(b){b.style.display='flex';b.textContent=newMsgCount;} }
     } else if(!msg.fromMe) {
       // Not active chat — increment unread
-      const key = msg.sessionId+'|'+msg.remoteJid;
+      const key = msg.sessionId+'|'+(allChats.find(c=>c.sessionId===msg.sessionId&&(c.remoteJid===msg.remoteJid||c._mergedJids?.includes(msg.remoteJid)))?.remoteJid||msg.remoteJid);
       unreadCounts[key] = (unreadCounts[key]||0) + 1;
     }
 
