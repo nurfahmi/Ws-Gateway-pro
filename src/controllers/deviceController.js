@@ -24,6 +24,7 @@ export const index = async (req, res) => {
   const user = req.session.user;
   const isSuperadmin = user.role === 'superadmin';
   const statusFilter = req.query.status || 'all';
+  const search = req.query.search || '';
   const page = parseInt(req.query.page) || 1;
   const limit = 15;
 
@@ -74,6 +75,17 @@ export const index = async (req, res) => {
     allDevices = allDevices.filter(d => d.liveStatus === statusFilter);
   }
 
+  // Apply search filter
+  if (search) {
+    const q = search.toLowerCase();
+    allDevices = allDevices.filter(d =>
+      (d.name || '').toLowerCase().includes(q) ||
+      d.sessionId.toLowerCase().includes(q) ||
+      (d.phoneNumber || '').toLowerCase().includes(q) ||
+      (d.creator?.name || '').toLowerCase().includes(q)
+    );
+  }
+
   // Pagination
   const total = allDevices.length;
   const totalPages = Math.ceil(total / limit);
@@ -102,6 +114,7 @@ export const index = async (req, res) => {
     title: 'Device Management',
     devices: paginatedDevices,
     statusFilter,
+    search,
     pagination: { page, totalPages, total },
     staffList,
     userList,

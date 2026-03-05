@@ -39,11 +39,17 @@
 
 <!-- Filters -->
 <div class="flex flex-wrap items-center gap-2 mb-5">
-  <input type="text" id="deviceSearch" placeholder="Search devices..."
-    class="px-3 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-500 transition w-48">
+  <form method="GET" action="/devices" class="inline">
+    <% if (statusFilter !== 'all') { %><input type="hidden" name="status" value="<%= statusFilter %>"><% } %>
+    <input type="text" name="search" id="deviceSearch" value="<%= search || '' %>" placeholder="Search devices..."
+      class="px-3 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-500 transition w-48">
+  </form>
+  <% if (search) { %>
+    <a href="/devices?status=<%= statusFilter %>" class="text-xs text-gray-400 hover:text-red-500 transition">✕ Clear</a>
+  <% } %>
   <span class="text-xs text-gray-500 dark:text-gray-400 font-medium ml-2">Status:</span>
   <% ['all','connected','connecting','reconnecting','scan_qr','failed','offline'].forEach(s => { %>
-    <a href="/devices?status=<%= s %>"
+    <a href="/devices?status=<%= s %><%= search ? '&search=' + encodeURIComponent(search) : '' %>"
       class="px-3 py-1.5 rounded-lg text-xs font-medium transition
         <%= statusFilter === s
           ? 'bg-green-600 text-white shadow-sm'
@@ -51,7 +57,7 @@
       <%= s === 'all' ? 'All' : s === 'scan_qr' ? 'Scan QR' : s.charAt(0).toUpperCase() + s.slice(1) %>
     </a>
   <% }) %>
-  <span class="ml-auto text-xs text-gray-400"><%= pagination.total %> devices</span>
+  <span class="ml-auto text-xs text-gray-400"><%= pagination.total %> devices<%= search ? ` matching "${search}"` : '' %></span>
 </div>
 
 <!-- Device Table -->
@@ -190,10 +196,10 @@
     <p class="text-xs text-gray-500 dark:text-gray-400">Page <%= pagination.page %> of <%= pagination.totalPages %></p>
     <div class="flex gap-2">
       <% if (pagination.page > 1) { %>
-        <a href="/devices?status=<%= statusFilter %>&page=<%= pagination.page - 1 %>" class="px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">← Previous</a>
+        <a href="/devices?status=<%= statusFilter %>&page=<%= pagination.page - 1 %><%= search ? '&search=' + encodeURIComponent(search) : '' %>" class="px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">← Previous</a>
       <% } %>
       <% if (pagination.page < pagination.totalPages) { %>
-        <a href="/devices?status=<%= statusFilter %>&page=<%= pagination.page + 1 %>" class="px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">Next →</a>
+        <a href="/devices?status=<%= statusFilter %>&page=<%= pagination.page + 1 %><%= search ? '&search=' + encodeURIComponent(search) : '' %>" class="px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">Next →</a>
       <% } %>
     </div>
   </div>

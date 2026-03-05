@@ -404,6 +404,13 @@ const createSession = async (sessionId, io) => {
                         if (exists) continue;
                     }
 
+                    // Store raw message for media types (needed for download)
+                    const mediaTypes = ['image', 'video', 'audio', 'ptt', 'document', 'sticker'];
+                    let rawMsg = null;
+                    if (mediaTypes.includes(messageType)) {
+                        try { rawMsg = JSON.stringify(msg); } catch(e) {}
+                    }
+
                     const saved = await prisma.message.create({
                         data: {
                             sessionId,
@@ -413,6 +420,7 @@ const createSession = async (sessionId, io) => {
                             pushName: msg.pushName || null,
                             messageType,
                             content: content ? content.substring(0, 5000) : null,
+                            rawMessage: rawMsg,
                             status: msg.key?.fromMe ? 'server_ack' : 'received',
                             timestamp: msg.messageTimestamp ? BigInt(msg.messageTimestamp) : null,
                         },

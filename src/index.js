@@ -446,11 +446,12 @@ const startServer = async () => {
   await initDb();
   await initSetup();
   await initGlobalWebhook();
-  await restoreSessions();
 
   httpServer.listen(port, () => {
     console.log(`Server listening on port ${port}`);
     console.log(`Dashboard: http://localhost:${port}`);
+    // Restore sessions in background — don't block server startup
+    restoreSessions().catch(err => console.error('Session restore error:', err));
   });
 };
 

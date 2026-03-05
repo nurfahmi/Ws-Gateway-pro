@@ -53,19 +53,21 @@
   }
 
   // ─── Media HTML ───
-  function mediaHtml(mt, content) {
+  function mediaHtml(mt, content, msgId) {
     const icons = { image:'📷 Photo', video:'🎥 Video', audio:'🎵 Audio', ptt:'🎤 Voice', document:'📄', sticker:'🏷️ Sticker', location:'📍 Location', liveLocationMessage:'📍 Live Location', contactMessage:'👤 Contact', contactsArrayMessage:'👥 Contacts' };
+    const dlBtn = msgId ? `<a href="/chat/api/download/${msgId}" class="wa-dl-btn" title="Download" onclick="event.stopPropagation()">⬇</a>` : '';
     if(mt==='image') {
       let caption = content || '';
       // Handle legacy thumb:base64|caption format
       if(caption.startsWith('thumb:')) { const i=caption.indexOf('|'); caption=i>0?caption.substring(i+1):''; }
-      let h = `<div class="wa-media-placeholder">📷 <span>Photo</span></div>`;
+      let h = `<div class="wa-media-placeholder">📷 <span>Photo</span>${dlBtn}</div>`;
       if(caption) h += `<div class="wa-media-caption">${esc(caption)}</div>`;
       return h;
     }
-    if(mt==='video') { let h=`<div class="wa-media-placeholder">🎥 <span>Video</span></div>`; if(content) h+=`<div class="wa-media-caption">${esc(content)}</div>`; return h; }
-    if(mt==='audio'||mt==='ptt') return `<div class="wa-media-placeholder">${mt==='ptt'?'🎤':'🎵'} <span>${mt==='ptt'?'Voice message':'Audio'}</span></div>`;
-    if(mt==='document') return `<div class="wa-media-placeholder">📄 <span>${esc(content)||'Document'}</span></div>`;
+    if(mt==='video') { let h=`<div class="wa-media-placeholder">🎥 <span>Video</span>${dlBtn}</div>`; if(content) h+=`<div class="wa-media-caption">${esc(content)}</div>`; return h; }
+    if(mt==='audio'||mt==='ptt') return `<div class="wa-media-placeholder">${mt==='ptt'?'🎤':'🎵'} <span>${mt==='ptt'?'Voice message':'Audio'}</span>${dlBtn}</div>`;
+    if(mt==='document') return `<div class="wa-media-placeholder">📄 <span>${esc(content)||'Document'}</span>${dlBtn}</div>`;
+    if(mt==='sticker') return `<div class="wa-media-placeholder">🏷️ <span>Sticker</span>${dlBtn}</div>`;
     if(icons[mt]) return `<div class="wa-media-placeholder">${icons[mt]}</div>`;
     return esc(content) || `[${mt}]`;
   }
@@ -81,7 +83,7 @@
     wrap.innerHTML = `
       <div class="wa-bubble ${msg.fromMe?'out':'in'}">
         ${!msg.fromMe&&msg.pushName?`<div class="wa-bubble-sender" style="color:${getAvatarColor(msg.pushName)}">${esc(msg.pushName)}</div>`:''}
-        <div class="wa-bubble-content">${mediaHtml(msg.messageType||'text',msg.content)}</div>
+        <div class="wa-bubble-content">${mediaHtml(msg.messageType||'text',msg.content,msg.id)}</div>
         <button class="wa-bubble-menu-btn" onclick="event.stopPropagation();window.__ctxBubble(event,this)">▾</button>
         <span class="wa-bubble-time">${fmtTime(msg.createdAt)} ${msg.fromMe?statusIcon(msg.status):''}</span>
       </div>`;

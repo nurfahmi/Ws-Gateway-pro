@@ -50,6 +50,7 @@ model Message {
   pushName    String?  @map("push_name") @db.VarChar(255)
   messageType String   @default("text") @map("message_type") @db.VarChar(50)
   content     String?  @db.Text
+  rawMessage  String?  @map("raw_message") @db.LongText
   status      String?  @db.VarChar(50)
   timestamp   BigInt?
   device      Device?  @relation(fields: [sessionId], references: [sessionId], onDelete: SetNull)

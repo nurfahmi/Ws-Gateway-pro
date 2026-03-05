@@ -4,12 +4,21 @@
   <div class="wa-sidebar">
     <div class="wa-sidebar-header">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--wa-green)" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-      <select class="wa-device-select" id="deviceFilter">
-        <option value="">All Devices</option>
-        <% devices.forEach(d => { %>
-          <option value="<%= d.sessionId %>" data-status="<%= d.status %>"><%= d.name || d.sessionId %><%= d.phoneNumber ? ` (${d.phoneNumber})` : '' %></option>
-        <% }) %>
-      </select>
+      <div class="wa-device-filter-wrap" style="position:relative;flex:1">
+        <input type="text" id="deviceSearchInput" placeholder="All Devices" class="wa-device-select" style="cursor:text" autocomplete="off">
+        <select class="wa-device-select" id="deviceFilter" style="display:none">
+          <option value="">All Devices</option>
+          <% devices.forEach(d => { %>
+            <option value="<%= d.sessionId %>" data-status="<%= d.status %>"><%= d.name || d.sessionId %><%= d.phoneNumber ? ` (${d.phoneNumber})` : '' %></option>
+          <% }) %>
+        </select>
+        <div id="deviceDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:60;max-height:250px;overflow-y:auto;background:var(--wa-bg-sidebar);border:1px solid var(--wa-border);border-radius:8px;margin-top:2px;">
+          <div class="dd-option" data-value="" style="padding:8px 12px;font-size:13px;cursor:pointer;">✓ All Devices</div>
+          <% devices.forEach(d => { %>
+            <div class="dd-option" data-value="<%= d.sessionId %>" style="padding:8px 12px;font-size:13px;cursor:pointer;"><%= d.name || d.sessionId %><%= d.phoneNumber ? ` (${d.phoneNumber})` : '' %></div>
+          <% }) %>
+        </div>
+      </div>
     </div>
     <div class="wa-search-bar">
       <div class="wa-search-wrap">
@@ -61,3 +70,40 @@
 <script>window.__devices = <%- JSON.stringify(devices) %>;</script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/chat.js"></script>
+
+<script>
+(function() {
+  const input = document.getElementById('deviceSearchInput');
+  const dropdown = document.getElementById('deviceDropdown');
+  const select = document.getElementById('deviceFilter');
+  const options = dropdown.querySelectorAll('.dd-option');
+
+  input.addEventListener('focus', () => { dropdown.style.display = 'block'; filter(); });
+  input.addEventListener('input', filter);
+
+  function filter() {
+    const q = input.value.toLowerCase();
+    options.forEach(o => {
+      o.style.display = o.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  }
+
+  options.forEach(o => {
+    o.addEventListener('mouseenter', () => o.style.background = 'var(--wa-hover)');
+    o.addEventListener('mouseleave', () => o.style.background = '');
+    o.addEventListener('click', () => {
+      const val = o.dataset.value;
+      select.value = val;
+      input.value = val ? o.textContent : '';
+      input.placeholder = val ? o.textContent : 'All Devices';
+      dropdown.style.display = 'none';
+      // Trigger change event so chat.js reloads chats
+      select.dispatchEvent(new Event('change'));
+    });
+  });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.wa-device-filter-wrap')) dropdown.style.display = 'none';
+  });
+})();
+</script>

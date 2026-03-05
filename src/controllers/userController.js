@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 
 export const index = async (req, res) => {
   const page = parseInt(req.query.page) || 1;
+  const search = req.query.search || '';
   const limit = 15;
   const skip = (page - 1) * limit;
 
@@ -10,6 +11,14 @@ export const index = async (req, res) => {
   const where = req.session.user.role === 'manager'
     ? { managerId: req.session.user.id }
     : {};
+
+  // Add search filter
+  if (search) {
+    where.OR = [
+      { name: { contains: search } },
+      { username: { contains: search } },
+    ];
+  }
 
   const [users, total] = await Promise.all([
     prisma.user.findMany({
@@ -28,7 +37,7 @@ export const index = async (req, res) => {
     ? await prisma.user.findMany({ where: { role: 'manager' }, select: { id: true, name: true } })
     : [];
 
-  res.render('users/index', { title: 'User Management', users, managers, pagination: { page, totalPages, total } });
+  res.render('users/index', { title: 'User Management', users, managers, search, pagination: { page, totalPages, total } });
 };
 
 export const createPage = async (req, res) => {

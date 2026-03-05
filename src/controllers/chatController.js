@@ -538,3 +538,56 @@ export const historyMessages = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// Download media from a message
+export const downloadMessageMedia = async (req, res) => {
+  const { id } = req.params; // message ID
+
+  try {
+    const message = await prisma.message.findUnique({ where: { id: parseInt(id) } });
+    if (!message || !message.rawMessage) {
+      return res.status(404).json({ error: 'Media not available for download' });
+    }
+
+    // Verify access
+    const allowedSessionIds = await getAllowedSessionIds(req.session.user);
+    if (allowedSessionIds && !allowedSessionIds.includes(message.sessionId)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const session = getSession(message.sessionId);
+    if (!session || session.status !== 'connected') {
+      return res.status(400).json({ error: 'Device not connected. Connect the device first to download media.' });
+    }
+
+    const rawMsg = JSON.parse(message.rawMessage);
+    
+    // Import downloadMediaMessage from baileys
+    const { downloadMediaMessage } = await import('@whiskeysockets/baileys');
+    
+    const buffer = await downloadMediaMessage(
+      rawMsg,
+      'buffer',
+      {},
+      {
+        logger: console,
+        reuploadRequest: session.sock.updateMediaMessage
+      }
+    );
+
+    // Determine filename and mimetype
+    const msgContent = rawMsg.message;
+    const mediaKey = Object.keys(msgContent).find(k => k.includes('Message') || k === 'imageMessage' || k === 'documentMessage' || k === 'videoMessage' || k === 'audioMessage' || k === 'stickerMessage');
+    const media = msgContent[mediaKey] || {};
+    const mimetype = media.mimetype || 'application/octet-stream';
+    const filename = media.fileName || `${message.messageType}_${message.id}.${mimetype.split('/')[1] || 'bin'}`;
+
+    res.setHeader('Content-Type', mimetype);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', buffer.length);
+    res.send(buffer);
+  } catch (error) {
+    console.error('downloadMedia error:', error);
+    res.status(500).json({ error: 'Failed to download media: ' + error.message });
+  }
+};

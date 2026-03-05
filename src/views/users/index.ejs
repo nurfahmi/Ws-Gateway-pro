@@ -1,8 +1,13 @@
 <div class="flex items-center justify-between mb-5">
   <div class="flex items-center gap-3">
-    <p class="text-sm text-gray-500 dark:text-gray-400"><%= pagination.total %> users total</p>
-    <input type="text" id="userSearch" placeholder="Search users..."
-      class="px-3 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-500 transition w-48">
+    <p class="text-sm text-gray-500 dark:text-gray-400"><%= pagination.total %> users<%= search ? ` matching "${search}"` : ' total' %></p>
+    <form method="GET" action="/users" class="inline">
+      <input type="text" name="search" id="userSearch" value="<%= search || '' %>" placeholder="Search users..."
+        class="px-3 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-500 transition w-48">
+    </form>
+    <% if (search) { %>
+      <a href="/users" class="text-xs text-gray-400 hover:text-red-500 transition">✕ Clear</a>
+    <% } %>
   </div>
   <a href="/users/create" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm">+ Add User</a>
 </div>
@@ -76,10 +81,10 @@
     <p class="text-xs text-gray-500 dark:text-gray-400">Page <%= pagination.page %> of <%= pagination.totalPages %></p>
     <div class="flex gap-2">
       <% if (pagination.page > 1) { %>
-        <a href="/users?page=<%= pagination.page - 1 %>" class="px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">← Previous</a>
+        <a href="/users?page=<%= pagination.page - 1 %><%= search ? '&search=' + encodeURIComponent(search) : '' %>" class="px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">← Previous</a>
       <% } %>
       <% if (pagination.page < pagination.totalPages) { %>
-        <a href="/users?page=<%= pagination.page + 1 %>" class="px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">Next →</a>
+        <a href="/users?page=<%= pagination.page + 1 %><%= search ? '&search=' + encodeURIComponent(search) : '' %>" class="px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">Next →</a>
       <% } %>
     </div>
   </div>
