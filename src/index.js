@@ -477,4 +477,13 @@ process.once('SIGUSR2', async () => {
   process.kill(process.pid, 'SIGUSR2');
 });
 
+// Crash guards — prevent a single session error from killing the entire process
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  // Don't exit — keep the server running
+});
+
 startServer();
