@@ -1,26 +1,32 @@
 import bcrypt from 'bcryptjs';
 import prisma from '../lib/prisma.js';
 
-export const loginPage = (req, res) => {
-  res.render('login', { title: 'Login', error: null, layout: false });
+export const loginPage = async (req, res) => {
+  const settings = await prisma.setting.findMany({ where: { key: { in: ['site_name', 'site_logo'] } } });
+  const siteSettings = {};
+  settings.forEach(s => { siteSettings[s.key === 'site_name' ? 'name' : 'logo'] = s.value; });
+  res.render('login', { title: 'Login', error: null, layout: false, siteSettings });
 };
 
 export const loginPost = async (req, res) => {
   const { username, password } = req.body;
+  const settings = await prisma.setting.findMany({ where: { key: { in: ['site_name', 'site_logo'] } } });
+  const siteSettings = {};
+  settings.forEach(s => { siteSettings[s.key === 'site_name' ? 'name' : 'logo'] = s.value; });
   try {
     const user = await prisma.user.findUnique({ where: { username } });
     if (!user || !user.isActive) {
-      return res.render('login', { title: 'Login', error: 'Invalid credentials', layout: false });
+      return res.render('login', { title: 'Login', error: 'Invalid credentials', layout: false, siteSettings });
     }
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
-      return res.render('login', { title: 'Login', error: 'Invalid credentials', layout: false });
+      return res.render('login', { title: 'Login', error: 'Invalid credentials', layout: false, siteSettings });
     }
     req.session.user = { id: user.id, username: user.username, name: user.name, role: user.role };
     res.redirect('/dashboard');
   } catch (err) {
     console.error('Login error:', err);
-    res.render('login', { title: 'Login', error: 'Server error', layout: false });
+    res.render('login', { title: 'Login', error: 'Server error', layout: false, siteSettings });
   }
 };
 

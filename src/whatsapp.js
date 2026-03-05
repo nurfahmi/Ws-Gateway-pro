@@ -411,11 +411,21 @@ const createSession = async (sessionId, io) => {
                         try { rawMsg = JSON.stringify(msg); } catch(e) {}
                     }
 
+                    // Resolve phone number
+                    let senderPhone = null;
+                    if (senderJid?.includes('@s.whatsapp.net')) {
+                        senderPhone = senderJid.split('@')[0];
+                    } else if (senderJid?.includes('@lid')) {
+                        const sc = contactStore.get(sessionId);
+                        senderPhone = sc?.get(senderJid)?.phone || null;
+                    }
+
                     const saved = await prisma.message.create({
                         data: {
                             sessionId,
                             messageId: msgId,
                             remoteJid: senderJid || null,
+                            senderPhone,
                             fromMe: msg.key?.fromMe || false,
                             pushName: msg.pushName || null,
                             messageType,

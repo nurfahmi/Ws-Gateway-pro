@@ -46,6 +46,7 @@ model Message {
   sessionId   String?  @map("session_id") @db.VarChar(255)
   messageId   String?  @map("message_id") @db.VarChar(255)
   remoteJid   String?  @map("remote_jid") @db.VarChar(255)
+  senderPhone String?  @map("sender_phone") @db.VarChar(50)
   fromMe      Boolean  @default(false) @map("from_me")
   pushName    String?  @map("push_name") @db.VarChar(255)
   messageType String   @default("text") @map("message_type") @db.VarChar(50)

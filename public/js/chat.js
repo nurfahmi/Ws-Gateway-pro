@@ -329,15 +329,20 @@
     const chat=allChats.find(c=>c.remoteJid===activeJid&&c.sessionId===activeDevice);
     const name=chat?chat.name:activeJid?.split('@')[0]||'Unknown';
     const isGroup=activeJid?.includes('@g.us');
+    const isLid=activeJid?.includes('@lid');
     const phone=chat?.contactPhone||null;
     const color=getAvatarColor(activeJid);
     const conn=isConnected(activeDevice);
     const body=infoPanel.querySelector('.wa-info-body');
     if(!body) return;
+
+    const phoneDisplay = phone ? esc(phone) : (isLid ? '<span style="color:var(--wa-text-secondary);font-style:italic">Phone not available</span>' : esc(activeJid?.split('@')[0] || ''));
+    const jidDisplay = isGroup ? esc(activeJid) : phoneDisplay;
+
     body.innerHTML=`
       <div class="wa-info-avatar" style="background:${color}">${isGroup?groupIcon(64):getInitials(name)}</div>
       <div class="wa-info-name">${esc(name)}</div>
-      <div class="wa-info-jid">${esc(phone || (isGroup ? activeJid : activeJid))}</div>
+      <div class="wa-info-jid">${jidDisplay}</div>
       <div class="wa-info-section">
         <h4>About</h4>
         <div class="wa-info-row">${isGroup?'Group chat':'Personal chat'}</div>
@@ -346,6 +351,26 @@
         <div class="wa-info-row"><span>Status:</span> ${conn?'🟢 Online':'🔴 Offline'}</div>
         <div class="wa-info-row"><span>Total Messages:</span> ${chat?.totalMessages||0}</div>
       </div>`;
+
+    // Try to resolve phone via API if connected and no phone yet
+    if (!phone && isLid && conn) {
+      fetch(`/chat/api/contact/${activeDevice}/${encodeURIComponent(activeJid)}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(c => {
+          if (c?.phone) {
+            if (chat) chat.contactPhone = c.phone;
+            const jidEl = body.querySelector('.wa-info-jid');
+            if (jidEl) jidEl.textContent = c.phone;
+            const section = body.querySelector('.wa-info-section');
+            if (section) {
+              const phoneRow = document.createElement('div');
+              phoneRow.className = 'wa-info-row';
+              phoneRow.innerHTML = `<span>Phone:</span> ${esc(c.phone)}`;
+              section.insertBefore(phoneRow, section.children[1]);
+            }
+          }
+        }).catch(() => {});
+    }
   }
 
   // ─── Search Messages ───

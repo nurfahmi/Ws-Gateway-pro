@@ -127,6 +127,7 @@ export const getChats = async (req, res) => {
         m.timestamp,
         d.name as deviceName,
         d.phone_number as phoneNumber,
+        m.sender_phone as senderPhone,
         (SELECT COUNT(*) FROM messages m2 WHERE m2.session_id = m.session_id AND m2.remote_jid = m.remote_jid) as totalMessages
       FROM messages m
       INNER JOIN (
@@ -172,7 +173,8 @@ export const getChats = async (req, res) => {
         contactPhone: (() => {
           if (c.remoteJid?.includes('@s.whatsapp.net')) return c.remoteJid.split('@')[0];
           if (c.remoteJid?.includes('@g.us')) return null;
-          // Try to resolve LID to phone from contact store
+          // Use saved phone first, then try contact store
+          if (c.senderPhone) return c.senderPhone;
           const contact = getContact(c.sessionId, c.remoteJid);
           return contact?.phone || null;
         })(),
@@ -590,4 +592,17 @@ export const downloadMessageMedia = async (req, res) => {
     console.error('downloadMedia error:', error);
     res.status(500).json({ error: 'Failed to download media: ' + error.message });
   }
+};
+
+// Resolve contact info (phone from LID, name, etc.)
+export const resolveContact = async (req, res) => {
+  const { device, jid } = req.params;
+
+  const allowedSessionIds = await getAllowedSessionIds(req.session.user);
+  if (allowedSessionIds && !allowedSessionIds.includes(device)) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const contact = getContact(device, decodeURIComponent(jid));
+  res.json(contact || { jid: decodeURIComponent(jid) });
 };

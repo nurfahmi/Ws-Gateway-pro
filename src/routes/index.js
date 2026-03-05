@@ -76,6 +76,7 @@ router.post('/chat/api/send', requireAuth, chatCtrl.sendMessage);
 router.post('/chat/api/send-media', requireAuth, chatCtrl.uploadMiddleware, chatCtrl.sendMedia);
 router.get('/chat/api/new-messages', requireAuth, chatCtrl.getNewMessages);
 router.get('/chat/api/download/:id', requireAuth, chatCtrl.downloadMessageMedia);
+router.get('/chat/api/contact/:device/:jid', requireAuth, chatCtrl.resolveContact);
 
 // Chat History (read-only archive)
 router.get('/chat-history', requireAuth, chatCtrl.historyIndex);
