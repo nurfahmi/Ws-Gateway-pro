@@ -12,7 +12,7 @@
             <option value="<%= d.sessionId %>" data-status="<%= d.status %>"><%= d.name || d.sessionId %><%= d.phoneNumber ? ` (${d.phoneNumber})` : '' %></option>
           <% }) %>
         </select>
-        <div id="deviceDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:60;max-height:250px;overflow-y:auto;background:var(--wa-bg-sidebar);border:1px solid var(--wa-border);border-radius:8px;margin-top:2px;">
+        <div id="deviceDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:60;max-height:250px;overflow-y:auto;background:var(--wa-sidebar-bg);border:1px solid var(--wa-border);border-radius:8px;margin-top:2px;box-shadow:0 4px 12px rgba(0,0,0,0.3)">
           <div class="dd-option" data-value="" style="padding:8px 12px;font-size:13px;cursor:pointer;">✓ All Devices</div>
           <% devices.forEach(d => { %>
             <div class="dd-option" data-value="<%= d.sessionId %>" style="padding:8px 12px;font-size:13px;cursor:pointer;"><%= d.name || d.sessionId %><%= d.phoneNumber ? ` (${d.phoneNumber})` : '' %></div>
@@ -89,7 +89,7 @@
   }
 
   options.forEach(o => {
-    o.addEventListener('mouseenter', () => o.style.background = 'var(--wa-hover)');
+    o.addEventListener('mouseenter', () => o.style.background = 'var(--wa-header-bg)');
     o.addEventListener('mouseleave', () => o.style.background = '');
     o.addEventListener('click', () => {
       const val = o.dataset.value;
