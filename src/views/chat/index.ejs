@@ -78,7 +78,11 @@
   const select = document.getElementById('deviceFilter');
   const options = dropdown.querySelectorAll('.dd-option');
 
-  input.addEventListener('focus', () => { dropdown.style.display = 'block'; filter(); });
+  input.addEventListener('focus', () => {
+    input.value = '';
+    dropdown.style.display = 'block';
+    options.forEach(o => o.style.display = '');
+  });
   input.addEventListener('input', filter);
 
   function filter() {
@@ -88,13 +92,21 @@
     });
   }
 
+  // When clicking away without selecting, restore placeholder text
+  input.addEventListener('blur', () => {
+    setTimeout(() => {
+      dropdown.style.display = 'none';
+      input.value = '';
+    }, 200);
+  });
+
   options.forEach(o => {
     o.addEventListener('mouseenter', () => o.style.background = 'var(--wa-header-bg)');
     o.addEventListener('mouseleave', () => o.style.background = '');
     o.addEventListener('click', () => {
       const val = o.dataset.value;
       select.value = val;
-      input.value = val ? o.textContent : '';
+      input.value = '';
       input.placeholder = val ? o.textContent : 'All Devices';
       dropdown.style.display = 'none';
       // Trigger change event so chat.js reloads chats

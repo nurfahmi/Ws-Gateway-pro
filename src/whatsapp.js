@@ -388,9 +388,22 @@ const createSession = async (sessionId, io) => {
                     content = m.imageMessage.caption || '';
                 }
                 else if (m.videoMessage) { messageType = 'video'; content = m.videoMessage.caption || ''; }
-                else if (m.audioMessage) { messageType = 'audio'; }
+                else if (m.audioMessage) { messageType = m.audioMessage.ptt ? 'ptt' : 'audio'; }
                 else if (m.documentMessage) { messageType = 'document'; content = m.documentMessage.fileName || ''; }
+                else if (m.documentWithCaptionMessage) {
+                    messageType = 'document';
+                    const doc = m.documentWithCaptionMessage?.message?.documentMessage;
+                    content = doc?.fileName || doc?.caption || '';
+                }
                 else if (m.stickerMessage) { messageType = 'sticker'; }
+                else if (m.pttMessage) { messageType = 'ptt'; }
+                else if (m.viewOnceMessage || m.viewOnceMessageV2) {
+                    const inner = m.viewOnceMessage?.message || m.viewOnceMessageV2?.message || {};
+                    if (inner.imageMessage) { messageType = 'image'; content = inner.imageMessage.caption || ''; }
+                    else if (inner.videoMessage) { messageType = 'video'; content = inner.videoMessage.caption || ''; }
+                    else { messageType = 'image'; }
+                }
+                else if (m.reactionMessage) { continue; } // Skip reactions
                 else { messageType = Object.keys(m)[0] || 'unknown'; }
 
                 // Persist message to DB (skip duplicates)
@@ -435,6 +448,30 @@ const createSession = async (sessionId, io) => {
                             timestamp: msg.messageTimestamp ? BigInt(msg.messageTimestamp) : null,
                         },
                     });
+
+                    // Download and save media to local disk
+                    if (mediaTypes.includes(messageType) && rawMsg) {
+                        try {
+                            const { default: fs } = await import('fs');
+                            const { default: path } = await import('path');
+                            const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: pino({ level: 'silent' }), reuploadRequest: sock.updateMediaMessage });
+                            const msgContent = msg.message;
+                            const mediaKey = Object.keys(msgContent).find(k => k.includes('Message'));
+                            const media = msgContent[mediaKey] || {};
+                            const ext = (media.mimetype || 'application/octet-stream').split('/')[1]?.split(';')[0] || 'bin';
+                            const mediaDir = path.join(process.cwd(), 'media', sessionId);
+                            fs.mkdirSync(mediaDir, { recursive: true });
+                            const filePath = path.join(mediaDir, `${saved.id}.${ext}`);
+                            fs.writeFileSync(filePath, buffer);
+                            // Save local path in DB
+                            await prisma.message.update({
+                                where: { id: saved.id },
+                                data: { mediaPath: `media/${sessionId}/${saved.id}.${ext}` },
+                            });
+                        } catch(e) {
+                            console.error(`[${sessionId}] Media save failed:`, e.message);
+                        }
+                    }
 
                     // Emit to Socket.IO for real-time chat
                     try {

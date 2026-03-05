@@ -58,16 +58,32 @@
     const dlBtn = msgId ? `<a href="/chat/api/download/${msgId}" class="wa-dl-btn" title="Download" onclick="event.stopPropagation()">⬇</a>` : '';
     if(mt==='image') {
       let caption = content || '';
-      // Handle legacy thumb:base64|caption format
       if(caption.startsWith('thumb:')) { const i=caption.indexOf('|'); caption=i>0?caption.substring(i+1):''; }
-      let h = `<div class="wa-media-placeholder">📷 <span>Photo</span>${dlBtn}</div>`;
+      let h = msgId
+        ? `<img src="/chat/api/download/${msgId}" class="wa-media-img" onclick="event.stopPropagation();window.__previewMedia(${msgId},'image')" onerror="this.style.display='none';this.insertAdjacentHTML('afterend','<div class=wa-media-placeholder>📷 Photo</div>')">`
+        : `<div class="wa-media-placeholder">📷 <span>Photo</span></div>`;
       if(caption) h += `<div class="wa-media-caption">${esc(caption)}</div>`;
       return h;
     }
-    if(mt==='video') { let h=`<div class="wa-media-placeholder">🎥 <span>Video</span>${dlBtn}</div>`; if(content) h+=`<div class="wa-media-caption">${esc(content)}</div>`; return h; }
+    if(mt==='video') {
+      let h = msgId
+        ? `<div class="wa-media-video-wrap" onclick="event.stopPropagation();window.__previewMedia(${msgId},'video')"><div class="wa-media-placeholder" style="cursor:pointer">🎥 <span>Video</span>${dlBtn}</div></div>`
+        : `<div class="wa-media-placeholder">🎥 <span>Video</span></div>`;
+      if(content) h+=`<div class="wa-media-caption">${esc(content)}</div>`;
+      return h;
+    }
     if(mt==='audio'||mt==='ptt') return `<div class="wa-media-placeholder">${mt==='ptt'?'🎤':'🎵'} <span>${mt==='ptt'?'Voice message':'Audio'}</span>${dlBtn}</div>`;
-    if(mt==='document') return `<div class="wa-media-placeholder">📄 <span>${esc(content)||'Document'}</span>${dlBtn}</div>`;
-    if(mt==='sticker') return `<div class="wa-media-placeholder">🏷️ <span>Sticker</span>${dlBtn}</div>`;
+    if(mt==='document') {
+      const fname = esc(content) || 'Document';
+      return msgId
+        ? `<a href="/chat/api/download/${msgId}" class="wa-doc-link" download onclick="event.stopPropagation()"><div class="wa-media-placeholder wa-doc">📄 <span>${fname}</span>⬇</div></a>`
+        : `<div class="wa-media-placeholder">📄 <span>${fname}</span></div>`;
+    }
+    if(mt==='sticker') {
+      return msgId
+        ? `<img src="/chat/api/download/${msgId}" class="wa-sticker-img" onerror="this.outerHTML='<div class=\\'wa-media-placeholder\\'>🏷️ <span>Sticker</span></div>'">`
+        : `<div class="wa-media-placeholder">🏷️ <span>Sticker</span></div>`;
+    }
     if(icons[mt]) return `<div class="wa-media-placeholder">${icons[mt]}</div>`;
     return esc(content) || `[${mt}]`;
   }
@@ -131,12 +147,31 @@
     // Mobile: hide sidebar
     document.querySelector('.wa-sidebar')?.classList.add('hidden-mobile');
 
-    const name = chat?chat.name:jid.split('@')[0];
+    let name = chat?chat.name:jid.split('@')[0];
     const isGroup = jid.includes('@g.us');
+    const isLid = jid.includes('@lid');
     const color = getAvatarColor(jid);
     const dl = chat?(chat.phoneNumber?`${chat.deviceName} · ${chat.phoneNumber}`:chat.deviceName):dev;
     const conn = isConnected(dev);
     const onlineDot = conn?'<span class="wa-online-dot"></span>':'';
+
+    // Auto-resolve name for groups or LID contacts
+    if (conn && (isGroup || isLid)) {
+      fetch(`/chat/api/contact/${dev}/${encodeURIComponent(jid)}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(c => {
+          if (c?.name && c.name !== name) {
+            name = c.name;
+            if (chat) chat.name = c.name;
+            // Update header
+            const headerName = document.querySelector('.wa-main-header .wa-chat-name');
+            if (headerName) headerName.textContent = c.name;
+            // Update chat list
+            const listItem = document.querySelector(`.wa-chat-item[data-jid="${jid}"][data-device="${dev}"] .wa-chat-name`);
+            if (listItem) listItem.textContent = c.name;
+          }
+        }).catch(() => {});
+    }
 
     waMain.innerHTML = `
       <div class="wa-main-header" onclick="window.__toggleInfo()">
@@ -254,8 +289,18 @@
     const msgArea=$('msgArea');
     const wrap=document.createElement('div'); wrap.className='wa-bubble-wrap out';
     const isImg=pendingFile.type.startsWith('image/'), isVid=pendingFile.type.startsWith('video/');
-    const icon=isImg?'📷 Photo':isVid?'🎥 Video':'📄 '+pendingFile.name;
-    wrap.innerHTML=`<div class="wa-bubble out"><div class="wa-bubble-content"><div class="wa-media-placeholder">${icon}</div>${caption?`<div class="wa-media-caption">${esc(caption)}</div>`:''}</div><span class="wa-bubble-time">${fmtTime(new Date().toISOString())} ${statusIcon('server_ack')}</span></div>`;
+    const isDoc=!isImg && !isVid;
+    // Show immediate preview for images
+    let mediaContent;
+    if(isImg) {
+      const blobUrl = URL.createObjectURL(pendingFile);
+      mediaContent = `<img src="${blobUrl}" class="wa-media-img">`;
+    } else if(isDoc) {
+      mediaContent = `<div class="wa-media-placeholder wa-doc">📄 <span>${esc(pendingFile.name)}</span></div>`;
+    } else {
+      mediaContent = `<div class="wa-media-placeholder">🎥 <span>Video</span></div>`;
+    }
+    wrap.innerHTML=`<div class="wa-bubble out"><div class="wa-bubble-content">${mediaContent}${caption?`<div class="wa-media-caption">${esc(caption)}</div>`:''}</div><span class="wa-bubble-time">${fmtTime(new Date().toISOString())} ${statusIcon('server_ack')}</span></div>`;
     msgArea.appendChild(wrap); msgArea.scrollTop=msgArea.scrollHeight;
     const fd=new FormData();
     fd.append('file',pendingFile); fd.append('device',activeDevice); fd.append('jid',activeJid);
@@ -502,6 +547,49 @@
       });
     }
   });
+
+  // ─── Media Preview Modal ───
+  window.__previewMedia = function(msgId, type) {
+    let modal = document.getElementById('mediaPreviewModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'mediaPreviewModal';
+      modal.className = 'wa-preview-modal';
+      modal.innerHTML = `
+        <div class="wa-preview-overlay" onclick="window.__closePreview()"></div>
+        <div class="wa-preview-content">
+          <div class="wa-preview-header">
+            <button onclick="window.__closePreview()" class="wa-preview-close">✕</button>
+            <a id="previewDlBtn" class="wa-preview-dl" download>⬇ Download</a>
+          </div>
+          <div class="wa-preview-body" id="previewBody"></div>
+        </div>`;
+      document.body.appendChild(modal);
+    }
+    const body = document.getElementById('previewBody');
+    const dlBtn = document.getElementById('previewDlBtn');
+    const url = `/chat/api/download/${msgId}`;
+    dlBtn.href = url;
+
+    if (type === 'image') {
+      body.innerHTML = `<img src="${url}" class="wa-preview-img" alt="Preview">`;
+    } else if (type === 'video') {
+      body.innerHTML = `<video src="${url}" controls autoplay class="wa-preview-video"></video>`;
+    }
+
+    modal.classList.add('open');
+    document.addEventListener('keydown', _previewEsc);
+  };
+
+  function _previewEsc(e) { if (e.key === 'Escape') window.__closePreview(); }
+  window.__closePreview = function() {
+    const modal = document.getElementById('mediaPreviewModal');
+    if (modal) modal.classList.remove('open');
+    document.removeEventListener('keydown', _previewEsc);
+    // Stop video if playing
+    const vid = modal?.querySelector('video');
+    if (vid) { vid.pause(); vid.src = ''; }
+  };
 
   // ─── Init ───
   loadChats();

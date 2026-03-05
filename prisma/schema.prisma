@@ -36,7 +36,6 @@ model Device {
   creator     User?     @relation(fields: [createdBy], references: [id])
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
-  messages    Message[]
 
   @@map("devices")
 }
@@ -52,9 +51,9 @@ model Message {
   messageType String   @default("text") @map("message_type") @db.VarChar(50)
   content     String?  @db.Text
   rawMessage  String?  @map("raw_message") @db.LongText
+  mediaPath   String?  @map("media_path") @db.VarChar(500)
   status      String?  @db.VarChar(50)
   timestamp   BigInt?
-  device      Device?  @relation(fields: [sessionId], references: [sessionId], onDelete: SetNull)
   createdAt   DateTime @default(now()) @map("created_at")
 
   @@index([sessionId])
@@ -82,4 +81,18 @@ model SessionStore {
   data String @db.LongText
 
   @@map("session_store")
+}
+
+model Contact {
+  id        Int      @id @default(autoincrement())
+  sessionId String   @map("session_id") @db.VarChar(255)
+  jid       String   @db.VarChar(255)
+  name      String?  @db.VarChar(255)
+  phone     String?  @db.VarChar(50)
+  isGroup   Boolean  @default(false) @map("is_group")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([sessionId, jid])
+  @@index([sessionId])
+  @@map("contacts")
 }

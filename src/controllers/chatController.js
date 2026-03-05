@@ -143,7 +143,15 @@ export const getChats = async (req, res) => {
       ORDER BY m.created_at DESC
     `, ...params, ...params);
 
+
     const mediaLabels = { image: '📷 Photo', video: '🎥 Video', audio: '🎵 Audio', ptt: '🎤 Voice message', document: '📄', sticker: '🏷️ Sticker' };
+
+    // Load cached contacts from DB
+    const cachedContacts = await prisma.contact.findMany({
+      where: { sessionId: { in: rawChats.map(c => c.sessionId) } }
+    });
+    const contactCache = new Map();
+    cachedContacts.forEach(c => contactCache.set(`${c.sessionId}|${c.jid}`, c));
 
     const chats = rawChats.map(c => {
       let preview = c.lastMessage || '';
@@ -162,18 +170,27 @@ export const getChats = async (req, res) => {
       }
       if (c.fromMe) preview = `You: ${preview}`;
 
+      const dbContact = contactCache.get(`${c.sessionId}|${c.remoteJid}`);
+
       return {
         sessionId: c.sessionId,
         remoteJid: c.remoteJid,
         name: (() => {
+          const isGroup = c.remoteJid?.includes('@g.us');
+          // DB cache first
+          if (dbContact?.name) return dbContact.name;
+          // In-memory store
           const contact = getContact(c.sessionId, c.remoteJid);
           if (contact?.name) return contact.name;
+          // For groups, don't use pushName (that's the sender, not the group name)
+          if (isGroup) return c.remoteJid?.split('@')[0] || 'Group';
           return c.contactName || c.pushName || c.remoteJid?.split('@')[0] || 'Unknown';
         })(),
         contactPhone: (() => {
           if (c.remoteJid?.includes('@s.whatsapp.net')) return c.remoteJid.split('@')[0];
           if (c.remoteJid?.includes('@g.us')) return null;
-          // Use saved phone first, then try contact store
+          // DB cache first, then saved phone, then contact store
+          if (dbContact?.phone) return dbContact.phone;
           if (c.senderPhone) return c.senderPhone;
           const contact = getContact(c.sessionId, c.remoteJid);
           return contact?.phone || null;
@@ -352,9 +369,83 @@ export const sendMedia = async (req, res) => {
     }
 
     const result = await session.sendMessage(jid, msgPayload);
+    const msgId = result?.key?.id;
+
+    // Save media file locally
+    let savedMediaPath = null;
+    try {
+      const { default: fs } = await import('fs');
+      const { default: path } = await import('path');
+      const ext = mime.split('/')[1]?.split(';')[0] || 'bin';
+      const mediaDir = path.join(process.cwd(), 'media', device);
+      fs.mkdirSync(mediaDir, { recursive: true });
+      // Use messageId as filename (unique)
+      const fileName = `${msgId}.${ext}`;
+      savedMediaPath = `media/${device}/${fileName}`;
+      fs.writeFileSync(path.join(process.cwd(), savedMediaPath), req.file.buffer);
+    } catch(e) {
+      console.error('Save sent media file error:', e.message);
+    }
+
+    // Ensure the DB record exists with mediaPath
+    if (msgId) {
+      try {
+        // Wait briefly for upsert handler, then update or create
+        await new Promise(r => setTimeout(r, 800));
+        const existing = await prisma.message.findFirst({ where: { sessionId: device, messageId: msgId } });
+        if (existing) {
+          await prisma.message.update({
+            where: { id: existing.id },
+            data: { mediaPath: savedMediaPath, rawMessage: JSON.stringify(result) },
+          });
+          // Rename file to use DB id
+          if (savedMediaPath) {
+            const { default: fs } = await import('fs');
+            const { default: path } = await import('path');
+            const ext = mime.split('/')[1]?.split(';')[0] || 'bin';
+            const newPath = `media/${device}/${existing.id}.${ext}`;
+            try {
+              fs.renameSync(path.join(process.cwd(), savedMediaPath), path.join(process.cwd(), newPath));
+              await prisma.message.update({ where: { id: existing.id }, data: { mediaPath: newPath } });
+            } catch(e) {}
+          }
+        } else {
+          // Record not created by upsert handler, create it
+          const mt = mime.startsWith('image/') ? 'image' : mime.startsWith('video/') ? 'video' : 'document';
+          const created = await prisma.message.create({
+            data: {
+              sessionId: device,
+              messageId: msgId,
+              remoteJid: jid,
+              fromMe: true,
+              messageType: mt,
+              content: mt === 'document' ? req.file.originalname : (caption || ''),
+              rawMessage: JSON.stringify(result),
+              mediaPath: savedMediaPath,
+              status: 'server_ack',
+              timestamp: BigInt(Math.floor(Date.now() / 1000)),
+            },
+          });
+          // Rename to DB id
+          if (savedMediaPath) {
+            const { default: fs } = await import('fs');
+            const { default: path } = await import('path');
+            const ext = mime.split('/')[1]?.split(';')[0] || 'bin';
+            const newPath = `media/${device}/${created.id}.${ext}`;
+            try {
+              fs.renameSync(path.join(process.cwd(), savedMediaPath), path.join(process.cwd(), newPath));
+              await prisma.message.update({ where: { id: created.id }, data: { mediaPath: newPath } });
+            } catch(e) {}
+          }
+        }
+      } catch(e) {
+        console.error('Save sent media DB error:', e.message);
+      }
+    }
+
     res.json({
       success: true,
-      messageId: result?.key?.id,
+      messageId: msgId,
       timestamp: Date.now(),
     });
   } catch (error) {
@@ -547,8 +638,8 @@ export const downloadMessageMedia = async (req, res) => {
 
   try {
     const message = await prisma.message.findUnique({ where: { id: parseInt(id) } });
-    if (!message || !message.rawMessage) {
-      return res.status(404).json({ error: 'Media not available for download' });
+    if (!message) {
+      return res.status(404).json({ error: 'Message not found' });
     }
 
     // Verify access
@@ -557,35 +648,45 @@ export const downloadMessageMedia = async (req, res) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
+    // Try local file first
+    if (message.mediaPath) {
+      const { default: fs } = await import('fs');
+      const { default: path } = await import('path');
+      const filePath = path.join(process.cwd(), message.mediaPath);
+      if (fs.existsSync(filePath)) {
+        const ext = path.extname(filePath).slice(1);
+        const mimeMap = { jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', webp:'image/webp', gif:'image/gif', mp4:'video/mp4', mp3:'audio/mpeg', ogg:'audio/ogg', pdf:'application/pdf', opus:'audio/ogg' };
+        const mimetype = mimeMap[ext] || 'application/octet-stream';
+        const disposition = mimetype.startsWith('image/') || mimetype.startsWith('video/') ? 'inline' : 'attachment';
+        res.setHeader('Content-Type', mimetype);
+        res.setHeader('Content-Disposition', `${disposition}; filename="${path.basename(filePath)}"`);
+        return fs.createReadStream(filePath).pipe(res);
+      }
+    }
+
+    // Fallback: re-download from WhatsApp
+    if (!message.rawMessage) {
+      return res.status(404).json({ error: 'Media not available' });
+    }
+
     const session = getSession(message.sessionId);
     if (!session || session.status !== 'connected') {
       return res.status(400).json({ error: 'Device not connected. Connect the device first to download media.' });
     }
 
     const rawMsg = JSON.parse(message.rawMessage);
-    
-    // Import downloadMediaMessage from baileys
     const { downloadMediaMessage } = await import('@whiskeysockets/baileys');
-    
-    const buffer = await downloadMediaMessage(
-      rawMsg,
-      'buffer',
-      {},
-      {
-        logger: console,
-        reuploadRequest: session.sock.updateMediaMessage
-      }
-    );
+    const buffer = await downloadMediaMessage(rawMsg, 'buffer', {}, { logger: console, reuploadRequest: session.sock.updateMediaMessage });
 
-    // Determine filename and mimetype
     const msgContent = rawMsg.message;
-    const mediaKey = Object.keys(msgContent).find(k => k.includes('Message') || k === 'imageMessage' || k === 'documentMessage' || k === 'videoMessage' || k === 'audioMessage' || k === 'stickerMessage');
+    const mediaKey = Object.keys(msgContent).find(k => k.includes('Message'));
     const media = msgContent[mediaKey] || {};
     const mimetype = media.mimetype || 'application/octet-stream';
     const filename = media.fileName || `${message.messageType}_${message.id}.${mimetype.split('/')[1] || 'bin'}`;
 
     res.setHeader('Content-Type', mimetype);
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    const disposition = mimetype.startsWith('image/') || mimetype.startsWith('video/') ? 'inline' : 'attachment';
+    res.setHeader('Content-Disposition', `${disposition}; filename="${filename}"`);
     res.setHeader('Content-Length', buffer.length);
     res.send(buffer);
   } catch (error) {
@@ -594,15 +695,53 @@ export const downloadMessageMedia = async (req, res) => {
   }
 };
 
-// Resolve contact info (phone from LID, name, etc.)
+// Resolve contact info (phone from LID, name, group name, etc.)
 export const resolveContact = async (req, res) => {
   const { device, jid } = req.params;
+  const decodedJid = decodeURIComponent(jid);
 
   const allowedSessionIds = await getAllowedSessionIds(req.session.user);
   if (allowedSessionIds && !allowedSessionIds.includes(device)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  const contact = getContact(device, decodeURIComponent(jid));
-  res.json(contact || { jid: decodeURIComponent(jid) });
+  // 1. Check DB cache first
+  const cached = await prisma.contact.findUnique({
+    where: { sessionId_jid: { sessionId: device, jid: decodedJid } }
+  });
+  if (cached?.name) {
+    return res.json({ jid: decodedJid, name: cached.name, phone: cached.phone });
+  }
+
+  // 2. Check in-memory contact store
+  let contact = getContact(device, decodedJid);
+  if (contact?.name) {
+    // Save to DB
+    await prisma.contact.upsert({
+      where: { sessionId_jid: { sessionId: device, jid: decodedJid } },
+      update: { name: contact.name, phone: contact.phone || null },
+      create: { sessionId: device, jid: decodedJid, name: contact.name, phone: contact.phone || null, isGroup: decodedJid.includes('@g.us') },
+    }).catch(() => {});
+    return res.json(contact);
+  }
+
+  // 3. Fetch from WhatsApp if connected
+  const session = getSession(device);
+  if (session?.status === 'connected' && session.sock) {
+    try {
+      if (decodedJid.includes('@g.us')) {
+        const meta = await session.sock.groupMetadata(decodedJid);
+        if (meta?.subject) {
+          await prisma.contact.upsert({
+            where: { sessionId_jid: { sessionId: device, jid: decodedJid } },
+            update: { name: meta.subject },
+            create: { sessionId: device, jid: decodedJid, name: meta.subject, isGroup: true },
+          }).catch(() => {});
+          return res.json({ jid: decodedJid, name: meta.subject, participants: meta.participants?.length || 0 });
+        }
+      }
+    } catch(e) {}
+  }
+
+  res.json({ jid: decodedJid });
 };
