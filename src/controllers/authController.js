@@ -1,18 +1,15 @@
 import bcrypt from 'bcryptjs';
 import prisma from '../lib/prisma.js';
+import { getSettings } from './settingsController.js';
 
 export const loginPage = async (req, res) => {
-  const settings = await prisma.setting.findMany({ where: { key: { in: ['site_name', 'site_logo'] } } });
-  const siteSettings = {};
-  settings.forEach(s => { siteSettings[s.key === 'site_name' ? 'name' : 'logo'] = s.value; });
+  const siteSettings = await getSettings();
   res.render('login', { title: 'Login', error: null, layout: false, siteSettings });
 };
 
 export const loginPost = async (req, res) => {
   const { username, password } = req.body;
-  const settings = await prisma.setting.findMany({ where: { key: { in: ['site_name', 'site_logo'] } } });
-  const siteSettings = {};
-  settings.forEach(s => { siteSettings[s.key === 'site_name' ? 'name' : 'logo'] = s.value; });
+  const siteSettings = await getSettings();
   try {
     const user = await prisma.user.findUnique({ where: { username } });
     if (!user || !user.isActive) {
