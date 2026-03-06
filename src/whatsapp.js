@@ -266,7 +266,7 @@ const createSession = async (sessionId, io) => {
                 };
                 // Store phone number if JID is @s.whatsapp.net
                 if (contact.id.includes('@s.whatsapp.net')) {
-                    data.phone = contact.id.split('@')[0];
+                    data.phone = contact.id.split('@')[0].split(':')[0];
                 }
                 sessionContacts.set(contact.id, data);
 
@@ -274,7 +274,7 @@ const createSession = async (sessionId, io) => {
                 if (contact.lid) {
                     const lidJid = contact.lid.includes('@') ? contact.lid : `${contact.lid}@lid`;
                     const existing = sessionContacts.get(lidJid) || {};
-                    sessionContacts.set(lidJid, { ...existing, ...data, jid: lidJid, phoneJid: contact.id, phone: contact.id.split('@')[0] });
+                    sessionContacts.set(lidJid, { ...existing, ...data, jid: lidJid, phoneJid: contact.id, phone: contact.id.split('@')[0].split(':')[0] });
                 }
             }
         }
@@ -340,7 +340,7 @@ const createSession = async (sessionId, io) => {
                         try {
                             const pn = await sock.signalRepository.lidMapping.getPNForLID(senderJid);
                             if (pn) {
-                                const phone = pn.split('@')[0];
+                                const phone = pn.split('@')[0].split(':')[0];
                                 sc.set(senderJid, { ...(existing || {}), jid: senderJid, phoneJid: pn, phone });
                             }
                         } catch(e) {}
@@ -427,7 +427,7 @@ const createSession = async (sessionId, io) => {
                     // Resolve phone number
                     let senderPhone = null;
                     if (senderJid?.includes('@s.whatsapp.net')) {
-                        senderPhone = senderJid.split('@')[0];
+                        senderPhone = senderJid.split('@')[0].split(':')[0];
                     } else if (senderJid?.includes('@lid')) {
                         const sc = contactStore.get(sessionId);
                         senderPhone = sc?.get(senderJid)?.phone || null;

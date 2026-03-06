@@ -8,6 +8,9 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Strip device suffix from JID phone (e.g. 60163272787:0 -> 60163272787)
+const phoneFromJid = (jid) => jid?.split('@')[0]?.split(':')[0] || null;
+
 // Configure multer for image uploads
 const uploadDir = path.join(__dirname, '../../uploads/chat');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -186,7 +189,7 @@ export const getChats = async (req, res) => {
           // contactName = latest incoming pushName (target's name), never use c.pushName (could be sender)
           if (c.contactName) return c.contactName;
           // For @s.whatsapp.net, phone number is in the JID
-          if (c.remoteJid?.includes('@s.whatsapp.net')) return c.remoteJid.split('@')[0];
+          if (c.remoteJid?.includes('@s.whatsapp.net')) return phoneFromJid(c.remoteJid);
           // For @lid, try resolved phone number
           if (c.senderPhone) return c.senderPhone;
           if (dbContact?.phone) return dbContact.phone;
@@ -195,7 +198,7 @@ export const getChats = async (req, res) => {
           return c.remoteJid?.split('@')[0] || 'Unknown';
         })(),
         contactPhone: (() => {
-          if (c.remoteJid?.includes('@s.whatsapp.net')) return c.remoteJid.split('@')[0];
+          if (c.remoteJid?.includes('@s.whatsapp.net')) return phoneFromJid(c.remoteJid);
           if (c.remoteJid?.includes('@g.us')) return null;
           // DB cache first, then saved phone, then contact store
           if (dbContact?.phone) return dbContact.phone;
@@ -236,7 +239,7 @@ export const getChats = async (req, res) => {
           existing.remoteJid = c.remoteJid;
         }
         // Prefer a real name
-        if (c.name && c.name !== c.remoteJid?.split('@')[0]) {
+        if (c.name && c.name !== phoneFromJid(c.remoteJid)) {
           existing.name = c.name;
         }
         // Store merged JIDs for message fetching

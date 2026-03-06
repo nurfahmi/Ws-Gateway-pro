@@ -148,7 +148,7 @@
     // Mobile: hide sidebar
     document.querySelector('.wa-sidebar')?.classList.add('hidden-mobile');
 
-    let name = chat?chat.name:jid.split('@')[0];
+    let name = chat?chat.name:jid.split('@')[0].split(':')[0];
     const isGroup = jid.includes('@g.us');
     const isLid = jid.includes('@lid');
     const color = getAvatarColor(jid);
@@ -182,7 +182,7 @@
         <div class="wa-avatar" style="background:${color};width:40px;height:40px;font-size:15px">${isGroup?groupIcon(20):getInitials(name)}</div>
         <div class="wa-chat-info">
           <div class="wa-chat-name-row"><span class="wa-chat-name">${esc(name)}</span><span class="wa-device-label" style="background:${getDeviceColor(dev)}">${esc(dl)}</span></div>
-          <div class="wa-chat-preview">${onlineDot}${isGroup?'Group':conn?'online':jid.split('@')[0]}</div>
+          <div class="wa-chat-preview">${onlineDot}${isGroup?'Group':conn?'online':jid.split('@')[0].split(':')[0]}</div>
         </div>
         <div class="wa-header-actions">
           <button class="wa-header-btn" onclick="event.stopPropagation();window.__searchMsg()" title="Search messages">
@@ -373,7 +373,7 @@
 
   function buildInfoPanel() {
     const chat=allChats.find(c=>c.remoteJid===activeJid&&c.sessionId===activeDevice);
-    const name=chat?chat.name:activeJid?.split('@')[0]||'Unknown';
+    const name=chat?chat.name:activeJid?.split('@')[0]?.split(':')[0]||'Unknown';
     const isGroup=activeJid?.includes('@g.us');
     const isLid=activeJid?.includes('@lid');
     const phone=chat?.contactPhone||null;
@@ -382,7 +382,7 @@
     const body=infoPanel.querySelector('.wa-info-body');
     if(!body) return;
 
-    const phoneDisplay = phone ? esc(phone) : (isLid ? '<span style="color:var(--wa-text-secondary);font-style:italic">Phone not available</span>' : esc(activeJid?.split('@')[0] || ''));
+    const phoneDisplay = phone ? esc(phone) : (isLid ? '<span style="color:var(--wa-text-secondary);font-style:italic">Phone not available</span>' : esc(activeJid?.split('@')[0]?.split(':')[0] || ''));
     const jidDisplay = isGroup ? esc(activeJid) : phoneDisplay;
 
     body.innerHTML=`
@@ -476,7 +476,7 @@
     let chatIdx = allChats.findIndex(c=>c.sessionId===msg.sessionId&&c.remoteJid===msg.remoteJid);
     if (chatIdx < 0) {
       // Check if this is a LID/phone duplicate of an existing chat
-      const msgPhone = msg.remoteJid?.includes('@s.whatsapp.net') ? msg.remoteJid.split('@')[0] : null;
+      const msgPhone = msg.remoteJid?.includes('@s.whatsapp.net') ? msg.remoteJid.split('@')[0].split(':')[0] : null;
       if (msgPhone) {
         chatIdx = allChats.findIndex(c=>c.sessionId===msg.sessionId&&c.contactPhone===msgPhone);
       } else {
@@ -494,7 +494,7 @@
       const dev = devices.find(d=>d.sessionId===msg.sessionId);
       allChats.unshift({
         sessionId:msg.sessionId, remoteJid:msg.remoteJid,
-        name:msg.contactName||(msg.fromMe?null:msg.pushName)||msg.remoteJid?.split('@')[0]||'Unknown',
+        name:msg.contactName||(msg.fromMe?null:msg.pushName)||msg.remoteJid?.split('@')[0]?.split(':')[0]||'Unknown',
         deviceName:dev?.name||msg.sessionId,
         phoneNumber:dev?.phoneNumber||null,
         lastMessage:preview,
