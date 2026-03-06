@@ -474,6 +474,12 @@ const startServer = async () => {
       `UPDATE contacts SET phone = SUBSTRING_INDEX(phone, ':', 1) WHERE phone LIKE '%:%'`
     );
     if (r4 > 0) console.log(`[cleanup] Fixed ${r4} contact phone records`);
+
+    // 5. Convert @lid remote_jid to phone@s.whatsapp.net when sender_phone is known
+    const r5 = await prisma.$executeRawUnsafe(
+      `UPDATE messages SET remote_jid = CONCAT(sender_phone, '@s.whatsapp.net') WHERE remote_jid LIKE '%@lid' AND sender_phone IS NOT NULL AND sender_phone != ''`
+    );
+    if (r5 > 0) console.log(`[cleanup] Converted ${r5} @lid records to phone JID`);
   } catch(e) {
     console.error('[cleanup] DB cleanup error:', e.message);
   }
