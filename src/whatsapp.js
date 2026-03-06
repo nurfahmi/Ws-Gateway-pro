@@ -237,6 +237,35 @@ const createSession = async (sessionId, io) => {
             retryCount.delete(sessionId);
             disconnectWebhookSent.delete(sessionId); // reset so next disconnect fires webhook
             try { await prisma.device.updateMany({ where: { sessionId }, data: { status: 'connected' } }); } catch(e) {}
+
+            // Bulk resolve @lid JIDs in background
+            (async () => {
+                try {
+                    const lidJids = await prisma.$queryRawUnsafe(
+                        `SELECT DISTINCT remote_jid FROM messages WHERE session_id = ? AND remote_jid LIKE '%@lid'`, sessionId
+                    );
+                    if (lidJids.length === 0) return;
+                    console.log(`[${sessionId}] Resolving ${lidJids.length} @lid JIDs...`);
+                    let resolved = 0;
+                    for (const row of lidJids) {
+                        try {
+                            const pn = await sock.signalRepository.lidMapping.getPNForLID(row.remote_jid);
+                            if (pn) {
+                                const phone = pn.split('@')[0].split(':')[0];
+                                const phoneJid = `${phone}@s.whatsapp.net`;
+                                const updated = await prisma.$executeRawUnsafe(
+                                    `UPDATE messages SET sender_phone = ?, remote_jid = ? WHERE session_id = ? AND remote_jid = ?`,
+                                    phone, phoneJid, sessionId, row.remote_jid
+                                );
+                                if (updated > 0) resolved++;
+                            }
+                        } catch(e) {}
+                    }
+                    if (resolved > 0) console.log(`[${sessionId}] Resolved ${resolved}/${lidJids.length} @lid JIDs to phone numbers`);
+                } catch(e) {
+                    console.error(`[${sessionId}] LID bulk sync error:`, e.message);
+                }
+            })();
         }
 
         // Also sync disconnected status
