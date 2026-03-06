@@ -200,11 +200,12 @@ export const getChats = async (req, res) => {
         contactPhone: (() => {
           if (c.remoteJid?.includes('@s.whatsapp.net')) return phoneFromJid(c.remoteJid);
           if (c.remoteJid?.includes('@g.us')) return null;
-          // DB cache first, then saved phone, then contact store
-          if (dbContact?.phone) return dbContact.phone;
-          if (c.senderPhone) return c.senderPhone;
+          // DB cache first, then saved phone, then contact store (strip :0 from old data)
+          const strip = p => p?.split(':')[0] || null;
+          if (dbContact?.phone) return strip(dbContact.phone);
+          if (c.senderPhone) return strip(c.senderPhone);
           const contact = getContact(c.sessionId, c.remoteJid);
-          return contact?.phone || null;
+          return strip(contact?.phone) || null;
         })(),
         deviceName: c.deviceName || c.sessionId,
         phoneNumber: c.phoneNumber || null,
