@@ -129,7 +129,13 @@ export const getChats = async (req, res) => {
         m.timestamp,
         d.name as deviceName,
         d.phone_number as phoneNumber,
-        m.sender_phone as senderPhone,
+        COALESCE(
+          m.sender_phone,
+          (SELECT m4.sender_phone FROM messages m4
+           WHERE m4.session_id = m.session_id AND m4.remote_jid = m.remote_jid
+           AND m4.sender_phone IS NOT NULL AND m4.sender_phone != ''
+           LIMIT 1)
+        ) as senderPhone,
         (SELECT COUNT(*) FROM messages m2 WHERE m2.session_id = m.session_id AND m2.remote_jid = m.remote_jid) as totalMessages
       FROM messages m
       INNER JOIN (
@@ -276,17 +282,48 @@ export const getMessages = async (req, res) => {
   }
 
   try {
-    // Also find the LID counterpart for this contact
-    const jids = [jid];
-    if (jid.includes('@s.whatsapp.net')) {
+    // Find ALL JID variants for this contact (phone, phone:0, @lid)
+    const jids = new Set([jid]);
+    const phone = phoneFromJid(jid);
+
+    if (jid.includes('@s.whatsapp.net') && phone) {
+      // Also match the :0 variant and any @lid JID with same phone
+      const variants = await prisma.$queryRawUnsafe(
+        `SELECT DISTINCT remote_jid FROM messages 
+         WHERE session_id = ? AND (
+           remote_jid = ? OR remote_jid = ? OR
+           sender_phone = ? OR sender_phone = ?
+         )`, device, jid, `${phone}:0@s.whatsapp.net`, phone, `${phone}:0`
+      );
+      variants.forEach(v => jids.add(v.remote_jid));
+      // Also check in-memory contact store for LID
       const contact = getContact(device, jid);
-      if (contact?.lid) jids.push(contact.lid);
+      if (contact?.lid) jids.add(contact.lid);
     } else if (jid.includes('@lid')) {
       const contact = getContact(device, jid);
-      if (contact?.phone) jids.push(`${contact.phone}@s.whatsapp.net`);
+      if (contact?.phone) {
+        const p = contact.phone.split(':')[0];
+        jids.add(`${p}@s.whatsapp.net`);
+        jids.add(`${p}:0@s.whatsapp.net`);
+      }
+      // Also check DB for sender_phone match
+      const lidMsgs = await prisma.$queryRawUnsafe(
+        `SELECT DISTINCT sender_phone FROM messages 
+         WHERE session_id = ? AND remote_jid = ? AND sender_phone IS NOT NULL LIMIT 1`, device, jid
+      );
+      if (lidMsgs.length > 0) {
+        const p = lidMsgs[0].sender_phone.split(':')[0];
+        const phoneVariants = await prisma.$queryRawUnsafe(
+          `SELECT DISTINCT remote_jid FROM messages 
+           WHERE session_id = ? AND (sender_phone = ? OR sender_phone = ? OR remote_jid = ? OR remote_jid = ?)`,
+          device, p, `${p}:0`, `${p}@s.whatsapp.net`, `${p}:0@s.whatsapp.net`
+        );
+        phoneVariants.forEach(v => jids.add(v.remote_jid));
+      }
     }
 
-    const where = { sessionId: device, remoteJid: { in: jids } };
+    const jidArray = Array.from(jids);
+    const where = { sessionId: device, remoteJid: { in: jidArray } };
     const [rawMessages, total] = await Promise.all([
       prisma.message.findMany({
         where,
@@ -478,20 +515,27 @@ export const getNewMessages = async (req, res) => {
   }
 
   try {
-    // Also find the LID counterpart
-    const jids = [jid];
-    if (jid.includes('@s.whatsapp.net')) {
+    // Find ALL JID variants for this contact
+    const jids = new Set([jid]);
+    const phone = phoneFromJid(jid);
+    if (jid.includes('@s.whatsapp.net') && phone) {
+      jids.add(`${phone}:0@s.whatsapp.net`);
+      jids.add(`${phone}@s.whatsapp.net`);
       const contact = getContact(device, jid);
-      if (contact?.lid) jids.push(contact.lid);
+      if (contact?.lid) jids.add(contact.lid);
     } else if (jid.includes('@lid')) {
       const contact = getContact(device, jid);
-      if (contact?.phone) jids.push(`${contact.phone}@s.whatsapp.net`);
+      if (contact?.phone) {
+        const p = contact.phone.split(':')[0];
+        jids.add(`${p}@s.whatsapp.net`);
+        jids.add(`${p}:0@s.whatsapp.net`);
+      }
     }
 
     const rawMessages = await prisma.message.findMany({
       where: {
         sessionId: device,
-        remoteJid: { in: jids },
+        remoteJid: { in: Array.from(jids) },
         id: { gt: parseInt(after) },
       },
       orderBy: { id: 'asc' },
