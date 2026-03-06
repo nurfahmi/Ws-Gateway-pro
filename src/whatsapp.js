@@ -342,6 +342,15 @@ const createSession = async (sessionId, io) => {
                             if (pn) {
                                 const phone = pn.split('@')[0].split(':')[0];
                                 sc.set(senderJid, { ...(existing || {}), jid: senderJid, phoneJid: pn, phone });
+                                // Backfill old @lid messages with resolved phone
+                                try {
+                                    const phoneJid = `${phone}@s.whatsapp.net`;
+                                    const updated = await prisma.$executeRawUnsafe(
+                                        `UPDATE messages SET sender_phone = ?, remote_jid = ? WHERE session_id = ? AND remote_jid = ?`,
+                                        phone, phoneJid, sessionId, senderJid
+                                    );
+                                    if (updated > 0) console.log(`[${sessionId}] Backfilled ${updated} @lid messages: ${senderJid} -> ${phoneJid}`);
+                                } catch(e) {}
                             }
                         } catch(e) {}
                     }
