@@ -447,43 +447,6 @@ const startServer = async () => {
   await initSetup();
   await initGlobalWebhook();
 
-  // One-time cleanup: normalize old JIDs and phone numbers
-  try {
-    const { default: prisma } = await import('./lib/prisma.js');
-    
-    // 1. Strip :0 from sender_phone (e.g. 60163272787:0 -> 60163272787)
-    const r1 = await prisma.$executeRawUnsafe(
-      `UPDATE messages SET sender_phone = SUBSTRING_INDEX(sender_phone, ':', 1) WHERE sender_phone LIKE '%:%'`
-    );
-    if (r1 > 0) console.log(`[cleanup] Fixed ${r1} sender_phone records`);
-
-    // 2. Normalize remote_jid: phone:0@s.whatsapp.net -> phone@s.whatsapp.net
-    const r2 = await prisma.$executeRawUnsafe(
-      `UPDATE messages SET remote_jid = CONCAT(SUBSTRING_INDEX(remote_jid, ':', 1), '@s.whatsapp.net') WHERE remote_jid LIKE '%:%@s.whatsapp.net'`
-    );
-    if (r2 > 0) console.log(`[cleanup] Fixed ${r2} remote_jid records`);
-
-    // 3. Backfill sender_phone for @s.whatsapp.net JIDs that are missing it
-    const r3 = await prisma.$executeRawUnsafe(
-      `UPDATE messages SET sender_phone = SUBSTRING_INDEX(remote_jid, '@', 1) WHERE remote_jid LIKE '%@s.whatsapp.net' AND (sender_phone IS NULL OR sender_phone = '')`
-    );
-    if (r3 > 0) console.log(`[cleanup] Backfilled ${r3} sender_phone records`);
-
-    // 4. Strip :0 from contacts table phone field
-    const r4 = await prisma.$executeRawUnsafe(
-      `UPDATE contacts SET phone = SUBSTRING_INDEX(phone, ':', 1) WHERE phone LIKE '%:%'`
-    );
-    if (r4 > 0) console.log(`[cleanup] Fixed ${r4} contact phone records`);
-
-    // 5. Convert @lid remote_jid to phone@s.whatsapp.net when sender_phone is known
-    const r5 = await prisma.$executeRawUnsafe(
-      `UPDATE messages SET remote_jid = CONCAT(sender_phone, '@s.whatsapp.net') WHERE remote_jid LIKE '%@lid' AND sender_phone IS NOT NULL AND sender_phone != ''`
-    );
-    if (r5 > 0) console.log(`[cleanup] Converted ${r5} @lid records to phone JID`);
-  } catch(e) {
-    console.error('[cleanup] DB cleanup error:', e.message);
-  }
-
   httpServer.listen(port, () => {
     console.log(`Server listening on port ${port}`);
     console.log(`Dashboard: http://localhost:${port}`);
