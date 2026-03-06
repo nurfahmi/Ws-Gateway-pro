@@ -321,8 +321,8 @@ const createSession = async (sessionId, io) => {
     });
 
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
-        if (type !== 'notify') return;
-        console.log(`[${sessionId}] messages.upsert: count=${messages.length}`);
+        if (type !== 'notify' && type !== 'append') return;
+        console.log(`[${sessionId}] messages.upsert: type=${type} count=${messages.length}`);
         {
             for (const msg of messages) {
                 if (!msg.message) continue;
@@ -478,12 +478,21 @@ const createSession = async (sessionId, io) => {
                         const { getIO } = await import('./socket.js');
                         const io = getIO();
                         if (io) {
+                            // Resolve target contact name for outgoing messages
+                            let targetName = null;
+                            if (msg.key?.fromMe && senderJid) {
+                                const sc = contactStore.get(sessionId);
+                                const ct = sc?.get(senderJid);
+                                targetName = ct?.name || ct?.verifiedName || ct?.notify || null;
+                            }
                             io.emit('new-message', {
                                 id: Number(saved.id),
                                 sessionId,
+                                messageId: msg.key?.id || null,
                                 remoteJid: senderJid,
                                 fromMe: msg.key?.fromMe || false,
                                 pushName: msg.pushName || null,
+                                contactName: targetName,
                                 messageType,
                                 content: content ? content.substring(0, 5000) : null,
                                 status: 'received',
@@ -719,12 +728,12 @@ const deleteSession = async (sessionId) => {
     contactStore.delete(sessionId);
 };
 
-// Restore sessions from DB on startup — only restore devices that were previously active
+// Restore sessions from DB on startup — restore all except logged out/failed
 const restoreSessions = async () => {
     try {
-        // Only restore sessions that were connected or reconnecting (not inactive/qr_timeout/failed)
+        // Restore all sessions that aren't explicitly logged out or failed
         const devices = await prisma.device.findMany({
-          where: { status: { in: ['connected', 'reconnecting', 'connecting', 'scan_qr'] } },
+          where: { status: { notIn: ['logged_out', 'failed'] } },
           select: { sessionId: true },
         });
         console.log(`Restoring ${devices.length} active sessions...`);

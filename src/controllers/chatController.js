@@ -117,8 +117,7 @@ export const getChats = async (req, res) => {
           (SELECT m3.push_name FROM messages m3 
            WHERE m3.session_id = m.session_id AND m3.remote_jid = m.remote_jid 
            AND m3.from_me = 0 AND m3.push_name IS NOT NULL AND m3.push_name != ''
-           ORDER BY m3.created_at DESC LIMIT 1),
-          m.push_name
+           ORDER BY m3.created_at DESC LIMIT 1)
         ) as contactName,
         m.content as lastMessage,
         m.message_type as messageType,
@@ -184,7 +183,16 @@ export const getChats = async (req, res) => {
           if (contact?.name) return contact.name;
           // For groups, don't use pushName (that's the sender, not the group name)
           if (isGroup) return c.remoteJid?.split('@')[0] || 'Group';
-          return c.contactName || c.pushName || c.remoteJid?.split('@')[0] || 'Unknown';
+          // contactName = latest incoming pushName (target's name), never use c.pushName (could be sender)
+          if (c.contactName) return c.contactName;
+          // For @s.whatsapp.net, phone number is in the JID
+          if (c.remoteJid?.includes('@s.whatsapp.net')) return c.remoteJid.split('@')[0];
+          // For @lid, try resolved phone number
+          if (c.senderPhone) return c.senderPhone;
+          if (dbContact?.phone) return dbContact.phone;
+          const ct = getContact(c.sessionId, c.remoteJid);
+          if (ct?.phone) return ct.phone;
+          return c.remoteJid?.split('@')[0] || 'Unknown';
         })(),
         contactPhone: (() => {
           if (c.remoteJid?.includes('@s.whatsapp.net')) return c.remoteJid.split('@')[0];

@@ -8,6 +8,7 @@
   let allChats = [], activeJid = null, activeDevice = null, lastMsgId = 0, pendingFile = null;
   let newMsgCount = 0, ctxTarget = null;
   const unreadCounts = {}; // track unread per chat key
+  const sentFromUI = new Set(); // track messageIds sent from chat UI
   const devices = window.__devices;
   const allowedSessionIds = new Set(devices.map(d => d.sessionId));
 
@@ -274,7 +275,7 @@
     try {
       const r=await fetch('/chat/api/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device:activeDevice,jid:activeJid,text})});
       const d=await r.json();
-      if(d.success){const st=wrap.querySelector('.wa-bubble-status');if(st)st.outerHTML=statusIcon('delivered');}
+      if(d.success){if(d.messageId)sentFromUI.add(d.messageId);const st=wrap.querySelector('.wa-bubble-status');if(st)st.outerHTML=statusIcon('delivered');}
       else{wrap.querySelector('.wa-bubble').style.opacity='0.5';const st=wrap.querySelector('.wa-bubble-status');if(st)st.outerHTML='<span class="wa-bubble-status" style="color:#e11d48">✗</span>';}
     }catch(e){wrap.querySelector('.wa-bubble').style.opacity='0.5';const st=wrap.querySelector('.wa-bubble-status');if(st)st.outerHTML='<span class="wa-bubble-status" style="color:#e11d48">✗</span>';}
     input.disabled=false;sendBtn.disabled=false;input.focus();loadChats();
@@ -309,7 +310,7 @@
     try {
       const r=await fetch('/chat/api/send-media',{method:'POST',body:fd});
       const d=await r.json();
-      if(d.success){const st=wrap.querySelector('.wa-bubble-status');if(st)st.outerHTML=statusIcon('delivered');}
+      if(d.success){if(d.messageId)sentFromUI.add(d.messageId);const st=wrap.querySelector('.wa-bubble-status');if(st)st.outerHTML=statusIcon('delivered');}
       else{wrap.querySelector('.wa-bubble').style.opacity='0.5';const st=wrap.querySelector('.wa-bubble-status');if(st)st.outerHTML='<span class="wa-bubble-status" style="color:#e11d48">✗</span>';}
     }catch(e){wrap.querySelector('.wa-bubble').style.opacity='0.5';const st=wrap.querySelector('.wa-bubble-status');if(st)st.outerHTML='<span class="wa-bubble-status" style="color:#e11d48">✗</span>';}
     input.disabled=false;sendBtn.disabled=false;input.focus();loadChats();
@@ -493,7 +494,7 @@
       const dev = devices.find(d=>d.sessionId===msg.sessionId);
       allChats.unshift({
         sessionId:msg.sessionId, remoteJid:msg.remoteJid,
-        name:msg.pushName||msg.remoteJid?.split('@')[0]||'Unknown',
+        name:msg.contactName||(msg.fromMe?null:msg.pushName)||msg.remoteJid?.split('@')[0]||'Unknown',
         deviceName:dev?.name||msg.sessionId,
         phoneNumber:dev?.phoneNumber||null,
         lastMessage:preview,
@@ -513,7 +514,7 @@
     const isActiveChat = activeDevice===msg.sessionId && (activeJid===msg.remoteJid || (allChats[0]?._mergedJids?.includes(msg.remoteJid) && allChats[0]?.remoteJid===activeJid));
     if(isActiveChat && msg.id>lastMsgId){
       lastMsgId=msg.id;
-      if(msg.fromMe) return; // already added by optimistic UI
+      if(msg.fromMe && msg.messageId && sentFromUI.has(msg.messageId)) { sentFromUI.delete(msg.messageId); return; } // skip UI-sent duplicates
       const msgArea=$('msgArea'); if(!msgArea) return;
       const atBottom=msgArea.scrollTop+msgArea.clientHeight>=msgArea.scrollHeight-50;
       msgArea.appendChild(makeBubble(msg));
